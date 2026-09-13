@@ -1,44 +1,44 @@
-package group
+package group_service
 
 import (
 	"context"
 
-	ferry "github.com/uddinArsalan/ferry-registry/proto"
+	gengroup "github.com/uddinArsalan/ferry-registry/proto/group"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type GroupServer struct{
-	ferry.UnimplementedGroupServiceServer
+type GroupServer struct {
+	gengroup.UnimplementedGroupServiceServer
 }
 
-func NewGroupServer() *GroupServer{
+func NewGroupServer() *GroupServer {
 	return &GroupServer{}
 }
 
-func (g *GroupServer) RegisterPeer(ctx context.Context,peer *ferry.Peer) (*ferry.Peer, error){
-	
+func (g *GroupServer) RegisterPeer(ctx context.Context, peer *gengroup.Peer) (*gengroup.Peer, error) {
+	return nil, nil
 }
 
-func (g *GroupServer) CreateGroup(ctx context.Context,void *emptypb.Empty) (*ferry.Group, error){
-
+func (g *GroupServer) CreateGroup(ctx context.Context, void *emptypb.Empty) (*gengroup.Group, error) {
+	return nil, nil
 }
 
-func (g *GroupServer) GetGroupsForPeer(ctx context.Context,perryID *ferry.PeerID) (*ferry.Groups, error){
-
+func (g *GroupServer) GetGroupsForPeer(ctx context.Context, perryID *gengroup.PeerID) (*gengroup.Groups, error) {
+	return nil, nil
 }
 
-func (g *GroupServer) GetGroups(ctx context.Context,void *emptypb.Empty) (*ferry.Groups, error){
-
+func (g *GroupServer) GetGroups(ctx context.Context, void *emptypb.Empty) (*gengroup.Groups, error) {
+	return nil, nil
 }
 
-func (g *GroupServer) GetPeers(context.Context, *emptypb.Empty) (*ferry.Peers, error){
-
+func (g *GroupServer) GetPeers(context.Context, *emptypb.Empty) (*gengroup.Peers, error) {
+	return nil, nil
 }
 
-func (g *GroupServer) GetPeer(context.Context, *ferry.PeerID) (*ferry.Peer, error){
-
+func (g *GroupServer) GetPeer(context.Context, *gengroup.PeerID) (*gengroup.Peer, error) {
+	return nil, nil
 }
 
-func (g *GroupServer) GetGroup(context.Context, *ferry.GroupID) (*ferry.Group, error){
-
+func (g *GroupServer) GetGroup(context.Context, *gengroup.GroupID) (*gengroup.Group, error) {
+	return nil, nil
 }

@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             v7.36.1
-// source: registry/proto/group.proto
+// source: proto/group/group.proto
 
-package ferry
+package group
 
 import (
 	context "context"
@@ -20,13 +20,13 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	GroupService_RegisterPeer_FullMethodName     = "/registry.service.GroupService/RegisterPeer"
-	GroupService_CreateGroup_FullMethodName      = "/registry.service.GroupService/CreateGroup"
-	GroupService_GetGroupsForPeer_FullMethodName = "/registry.service.GroupService/GetGroupsForPeer"
-	GroupService_GetGroups_FullMethodName        = "/registry.service.GroupService/GetGroups"
-	GroupService_GetPeers_FullMethodName         = "/registry.service.GroupService/GetPeers"
-	GroupService_GetPeer_FullMethodName          = "/registry.service.GroupService/GetPeer"
-	GroupService_GetGroup_FullMethodName         = "/registry.service.GroupService/GetGroup"
+	GroupService_RegisterPeer_FullMethodName     = "/registry.proto.group.GroupService/RegisterPeer"
+	GroupService_CreateGroup_FullMethodName      = "/registry.proto.group.GroupService/CreateGroup"
+	GroupService_GetGroupsForPeer_FullMethodName = "/registry.proto.group.GroupService/GetGroupsForPeer"
+	GroupService_GetGroups_FullMethodName        = "/registry.proto.group.GroupService/GetGroups"
+	GroupService_GetPeers_FullMethodName         = "/registry.proto.group.GroupService/GetPeers"
+	GroupService_GetPeer_FullMethodName          = "/registry.proto.group.GroupService/GetPeer"
+	GroupService_GetGroup_FullMethodName         = "/registry.proto.group.GroupService/GetGroup"
 )
 
 // GroupServiceClient is the client API for GroupService service.
@@ -313,7 +313,7 @@ func _GroupService_GetGroup_Handler(srv interface{}, ctx context.Context, dec fu
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var GroupService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "registry.service.GroupService",
+	ServiceName: "registry.proto.group.GroupService",
 	HandlerType: (*GroupServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -346,5 +346,5 @@ var GroupService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "registry/proto/group.proto",
+	Metadata: "proto/group/group.proto",
 }

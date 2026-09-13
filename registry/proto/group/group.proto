@@ -2,10 +2,9 @@ syntax = "proto3";
 
 import "google/protobuf/empty.proto"; 
 
-package registry.service;
+package registry.proto.group;
 
-
-option go_package = "github.com/uddinArsalan/ferry";
+option go_package = "github.com/uddinArsalan/ferry-registry/proto/group";
 
 service GroupService {
   rpc RegisterPeer(Peer) returns (Peer);
