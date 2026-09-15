@@ -16,10 +16,14 @@ func NewAuthRepo(db *sql.DB) *AuthRepo {
 	return &AuthRepo{db: db}
 }
 
-func (a *AuthRepo) CreateUser(ctx context.Context, name, email, password_hash string) error {
-	query := "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)"
-	_, err := a.db.Exec(query, name, email, password_hash)
-	return err
+func (a *AuthRepo) CreateUser(ctx context.Context, name, email, passwordHash string) (int64, error) {
+	var userID int64
+	query := "INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) returning id"
+	row := a.db.QueryRow(query, name, email, passwordHash)
+	if err := row.Scan(&userID); err != nil {
+		return -1, err
+	}
+	return userID, nil
 }
 
 func (a *AuthRepo) GetUserByEmail(ctx context.Context, email string) (domain.User, error) {
@@ -34,7 +38,7 @@ func (a *AuthRepo) GetUserByEmail(ctx context.Context, email string) (domain.Use
 }
 
 func (a *AuthRepo) CreateRefreshToken(ctx context.Context, userID int64, tokenHash string, expiresAt time.Time) error {
-	query := "INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)"
+	query := "INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)"
 	_, err := a.db.Exec(query, userID, tokenHash, expiresAt)
 	return err
 }

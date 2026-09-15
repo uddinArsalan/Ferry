@@ -5,6 +5,8 @@ import (
 	"log"
 	"net"
 
+	"github.com/uddinArsalan/ferry-registry/adapters/password"
+	"github.com/uddinArsalan/ferry-registry/adapters/token"
 	"github.com/uddinArsalan/ferry-registry/db"
 	genauth "github.com/uddinArsalan/ferry-registry/proto/auth"
 	gengroup "github.com/uddinArsalan/ferry-registry/proto/group"
@@ -14,15 +16,18 @@ import (
 	"google.golang.org/grpc"
 )
 
-func main(){
-	db,err := db.NewDB()
-	if err != nil{
-		log.Fatalf("Error initialising db connection %v",err.Error())
+func main() {
+	db, err := db.NewDB()
+	if err != nil {
+		log.Fatalf("Error initialising db connection %v", err.Error())
 	}
 
+	tokenStore := token.NewToken()
+	passwordStore := password.NewPasswordManager()
+
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", 5051))
-	if err != nil{
-		log.Fatalf("Error starting grpc server %v",err.Error())
+	if err != nil {
+		log.Fatalf("Error starting grpc server %v", err.Error())
 	}
 
 	grpcServer := grpc.NewServer()
@@ -30,13 +35,13 @@ func main(){
 	authRepo := repository.NewAuthRepo(db)
 
 	groupServer := group.NewGroupServer()
-	authServer := auth.NewAuthService(authRepo)
+	authServer := auth.NewAuthService(authRepo, passwordStore, tokenStore)
 
-	gengroup.RegisterGroupServiceServer(grpcServer,groupServer)
+	gengroup.RegisterGroupServiceServer(grpcServer, groupServer)
 
-	genauth.RegisterAuthServiceServer(grpcServer,authServer)
-	
+	genauth.RegisterAuthServiceServer(grpcServer, authServer)
+
 	if err := grpcServer.Serve(lis); err != nil {
-        log.Fatal(err)
-    }
+		log.Fatal(err)
+	}
 }
