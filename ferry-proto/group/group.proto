@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto"; 
+
+package registry.proto.group;
+
+option go_package = "github.com/uddinArsalan/ferry-registry/proto/group";
+
+service GroupService {
+  rpc RegisterPeer(Peer) returns (Peer);
+
+  rpc CreateGroup(google.protobuf.Empty) returns (Group);
+
+  rpc GetGroupsForPeer(PeerID) returns (Groups);
+
+  rpc GetGroups(google.protobuf.Empty) returns (Groups);
+
+  rpc GetPeers(google.protobuf.Empty) returns (Peers);
+
+  rpc GetPeer(PeerID) returns (Peer);
+
+  rpc GetGroup(GroupID) returns (Group);
+}
+
+message PeerID {
+  string id = 1;
+}
+
+message GroupID {
+  string id = 1;
+}
+
+message Group {
+  string id = 1;
+  repeated PeerLocal peers = 2;
+}
+
+message Groups {
+  repeated Group groups = 1;
+}
+
+message Peer {
+  string id = 1;
+  string address = 2;
+  int32 port = 3;
+}
+
+message PeerLocal {
+  Peer peer = 1;
+  string local_dir = 2;
+}
+
+message Peers {
+  repeated Peer peers = 1;
+}
