@@ -1,6 +1,9 @@
 -include .env
 export
 
+run:
+	go run ./cmd/main.go
+
 create_migration:
 	migrate create -ext sql -dir ./migrations $(NAME)
 

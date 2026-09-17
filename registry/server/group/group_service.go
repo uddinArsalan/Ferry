@@ -3,7 +3,7 @@ package group_service
 import (
 	"context"
 
-	gengroup "github.com/uddinArsalan/ferry-registry/proto/group"
+	gengroup "github.com/uddinArsalan/ferry-proto/group"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 

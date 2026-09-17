@@ -5,11 +5,12 @@ import (
 	"log"
 	"net"
 
+	"github.com/joho/godotenv"
+	genauth "github.com/uddinArsalan/ferry-proto/auth"
+	gengroup "github.com/uddinArsalan/ferry-proto/group"
 	"github.com/uddinArsalan/ferry-registry/adapters/password"
 	"github.com/uddinArsalan/ferry-registry/adapters/token"
 	"github.com/uddinArsalan/ferry-registry/db"
-	genauth "github.com/uddinArsalan/ferry-registry/proto/auth"
-	gengroup "github.com/uddinArsalan/ferry-registry/proto/group"
 	"github.com/uddinArsalan/ferry-registry/repository"
 	auth "github.com/uddinArsalan/ferry-registry/server/auth"
 	group "github.com/uddinArsalan/ferry-registry/server/group"
@@ -17,6 +18,10 @@ import (
 )
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 	db, err := db.NewDB()
 	if err != nil {
 		log.Fatalf("Error initialising db connection %v", err.Error())

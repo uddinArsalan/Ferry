@@ -28,7 +28,7 @@ func (a *AuthRepo) CreateUser(ctx context.Context, name, email, passwordHash str
 
 func (a *AuthRepo) GetUserByEmail(ctx context.Context, email string) (domain.User, error) {
 	var user domain.User
-	query := "SELECT id, name, email, password_hash,created_at,updated_at FROM users WHERE email = ?"
+	query := "SELECT id, name, email, password_hash,created_at,updated_at FROM users WHERE email = $1"
 	row := a.db.QueryRow(query, email)
 	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.PasswordHash, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {

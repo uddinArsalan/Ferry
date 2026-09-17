@@ -1,41 +1,60 @@
 package main
 
 import (
-	"flag"
+	// "flag"
+	"context"
 	"log"
+	"time"
 
-	"github.com/uddinArsalan/ferry/peers"
-	"github.com/uddinArsalan/ferry/tcp"
-	"github.com/uddinArsalan/ferry/types"
-	"github.com/uddinArsalan/ferry/watcher"
+	"github.com/uddinArsalan/ferry/cli"
+	"github.com/uddinArsalan/ferry/client"
+	// "github.com/uddinArsalan/ferry/peers"
+	// "github.com/uddinArsalan/ferry/tcp"
+	// "github.com/uddinArsalan/ferry/types"
+	// "github.com/uddinArsalan/ferry/watcher"
 )
 
 func main() {
-	pm := peers.NewPeerManager()
-
-	var dir string
-	// var grpId string
-	flag.StringVar(&dir,"dir","","directory to watch")
-	// flag.StringVar(&grpId,"grpId","","sync group to add this peer")
-	flag.Parse()
-
-	w, err := watcher.NewWatcher()
+	authClient, err := client.NewAuthClient()
 	if err != nil {
-		log.Printf("Error in creating watcher")
-		return
+		log.Fatalf("error initialising auth client")
 	}
+	groupClient, err := client.NewGrouplient()
+	if err != nil {
+		log.Fatalf("error initialising group client")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
 
-	eventChan := make(chan types.Event,10)
+	logger := cli.NewLogger()
+	cli := cli.NewCli(ctx, logger.GetLogger(), authClient, groupClient)
+	cli.TakeUerParams()
+	// below code will update
+	// pm := peers.NewPeerManager()
 
-	w.WatchFile(dir,eventChan)
+	// var dir string
+	// // var grpId string
+	// flag.StringVar(&dir, "dir", "", "directory to watch")
+	// // flag.StringVar(&grpId,"grpId","","sync group to add this peer")
+	// flag.Parse()
 
-	server := tcp.NewServer(":3000",pm)
+	// w, err := watcher.NewWatcher()
+	// if err != nil {
+	// 	log.Printf("Error in creating watcher")
+	// 	return
+	// }
 
-	go server.Start()
+	// eventChan := make(chan types.Event, 10)
 
-	go server.ConnectToPeers()
+	// w.WatchFile(dir, eventChan)
 
-	go pm.SendToAllPeersOfGroup(eventChan) 
+	// server := tcp.NewServer(":3000", pm)
 
-	<-make(chan struct{})
+	// go server.Start()
+
+	// go server.ConnectToPeers()
+
+	// go pm.SendToAllPeersOfGroup(eventChan)
+
+	// <-make(chan struct{})
 }
