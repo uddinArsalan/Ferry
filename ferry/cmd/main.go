@@ -15,11 +15,15 @@ import (
 )
 
 func main() {
-	authClient, err := client.NewAuthClient()
+	g, err := client.NewDialWithToken()
+	if err != nil {
+		log.Fatalf("error initialising dial config")
+	}
+	authClient, err := g.NewAuthClient()
 	if err != nil {
 		log.Fatalf("error initialising auth client")
 	}
-	groupClient, err := client.NewGrouplient()
+	groupClient, err := g.NewGrouplient()
 	if err != nil {
 		log.Fatalf("error initialising group client")
 	}

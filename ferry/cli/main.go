@@ -7,12 +7,15 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
 
 	"github.com/uddinArsalan/ferry-proto/auth"
 	"github.com/uddinArsalan/ferry-proto/group"
+	"github.com/zalando/go-keyring"
+	"golang.org/x/oauth2"
 	"golang.org/x/term"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -46,19 +49,19 @@ func (c Cli) TakeUerParams() {
 		}
 	case "--help":
 		// will need to update
-		c.l.Printf("Use login to get started") 
-	default :
-		c.l.Printf("No params or invalid params provided") 
+		c.l.Printf("Use login to get started")
+	default:
+		c.l.Printf("No params or invalid params provided")
 	}
 }
 
 func (c Cli) login() {
 	sc := bufio.NewScanner(os.Stdin)
-	c.l.Println("Enter your email")
+	c.l.Println("Enter your email:")
 	sc.Scan()
 	email := sc.Text()
 
-	c.l.Println("Enter your password")
+	c.l.Println("Enter your password:")
 	password, err := term.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {
 		c.l.Printf("error reading password, please try again")
@@ -88,12 +91,15 @@ func (c Cli) login() {
 		fmt.Println("Error authenticating", err.Error())
 		return
 	}
-	c.l.Println("Logged in successfully")
+	if err != saveToKeyRing(res) {
+		c.l.Fatal("Error authenticating")
+	}
 	c.l.Println(formatAuthResults(res))
+	c.l.Println("Logged in successfully")
 }
 
 func (c Cli) registerUser(sc *bufio.Scanner, loginReq *auth.LoginRequest) {
-	c.l.Println("Enter your name")
+	c.l.Println("Enter your name:")
 	sc.Scan()
 	name := sc.Text()
 	res, err := c.authClient.Register(c.ctx, &auth.RegisterRequest{
@@ -104,8 +110,13 @@ func (c Cli) registerUser(sc *bufio.Scanner, loginReq *auth.LoginRequest) {
 	if err != nil {
 		c.l.Fatal("Error authenticating")
 	}
-	c.l.Println("Registered successfully")
+
+	if err != saveToKeyRing(res) {
+		c.l.Fatal("Error authenticating")
+	}
 	c.l.Println(formatAuthResults(res))
+	c.l.Println("Registered successfully")
+
 }
 
 type AuthResponse interface {
@@ -128,6 +139,40 @@ func formatAuthResults[T AuthResponse](res T) string {
 
 func getDateAndTime(milliseconds int64) time.Time {
 	return time.Now().Add(time.Duration(milliseconds) * time.Millisecond)
+}
+
+var (
+	service = "ferry"
+)
+
+func saveToKeyRing(authRes AuthResponse) error {
+	accessTokenExpiry := strconv.FormatInt(authRes.GetAccessExpiresAt(), 10)
+	refreshTokenExpiry := strconv.FormatInt(authRes.GetRefreshExpiresAt(), 10)
+	if err := keyring.Set(service, "access_token", authRes.GetAccessToken()); err != nil {
+		return err
+	}
+	if err := keyring.Set(service, "refresh_token", authRes.GetAccessToken()); err != nil {
+		return err
+	}
+	if err := keyring.Set(service, "access_token_expiry", accessTokenExpiry); err != nil {
+		return err
+	}
+	return keyring.Set(service, "refresh_token_expiry", refreshTokenExpiry)
+}
+
+func GetTokens()(*oauth2.Token, error){
+	accessToken,err := keyring.Get("ferry","access_token");
+	if err != nil{
+		return nil,err
+	}
+	refreshToken,err := keyring.Get("ferry","refresh_token");
+	if err != nil{
+		return nil,err
+	}
+	return &oauth2.Token{
+		AccessToken: accessToken,
+		RefreshToken: refreshToken,
+	},nil
 }
 
 func (c Cli) createGroup() {
