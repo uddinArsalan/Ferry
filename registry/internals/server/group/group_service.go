@@ -2,9 +2,17 @@ package group_service
 
 import (
 	"context"
+	"log"
 
 	gengroup "github.com/uddinArsalan/ferry-proto/group"
+	"github.com/uddinArsalan/ferry-registry/interceptor"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+)
+
+var (
+	ErrUnauthenticated = status.Error(codes.Unauthenticated, "unauthenticated")
 )
 
 type GroupServer struct {
@@ -20,6 +28,8 @@ func (g *GroupServer) RegisterPeer(ctx context.Context, peer *gengroup.Peer) (*g
 }
 
 func (g *GroupServer) CreateGroup(ctx context.Context, void *emptypb.Empty) (*gengroup.Group, error) {
+	userID := ctx.Value(interceptor.UserID{})
+	log.Printf("User ID %v", userID)
 	return nil, nil
 }
 

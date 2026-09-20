@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/uddinArsalan/ferry-registry/domain"
+	"github.com/uddinArsalan/ferry-registry/internals/domain"
 )
 
 type AuthRepo struct {

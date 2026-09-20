@@ -10,7 +10,7 @@ import (
 	genauth "github.com/uddinArsalan/ferry-proto/auth"
 	"github.com/uddinArsalan/ferry-registry/adapters/password"
 	"github.com/uddinArsalan/ferry-registry/adapters/token"
-	"github.com/uddinArsalan/ferry-registry/repository"
+	"github.com/uddinArsalan/ferry-registry/internals/repository"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

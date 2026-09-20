@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -51,13 +52,16 @@ func (j Token) VerifyToken(tokenStr string) (*Claims, error) {
 			if t.Method != j.signingAlgo {
 				return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 			}
-
 			return []byte(j.secret), nil
 		},
 	)
 
-	if err != nil || !token.Valid {
+	if err != nil{
 		return nil, err
+	}
+
+	if !token.Valid{
+		return nil,errors.New("unauthenticated or invalid tokens")
 	}
 
 	claims, ok := token.Claims.(*Claims)

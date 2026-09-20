@@ -7,18 +7,16 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"strings"
-	"time"
 	"unicode"
 
 	"github.com/uddinArsalan/ferry-proto/auth"
 	"github.com/uddinArsalan/ferry-proto/group"
-	"github.com/zalando/go-keyring"
-	"golang.org/x/oauth2"
+	"github.com/uddinArsalan/ferry/utils"
 	"golang.org/x/term"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type Cli struct {
@@ -91,10 +89,10 @@ func (c Cli) login() {
 		fmt.Println("Error authenticating", err.Error())
 		return
 	}
-	if err != saveToKeyRing(res) {
+	if err != SaveToKeyRing(res) {
 		c.l.Fatal("Error authenticating")
 	}
-	c.l.Println(formatAuthResults(res))
+	c.l.Println(utils.FormatAuthResults(res))
 	c.l.Println("Logged in successfully")
 }
 
@@ -111,70 +109,19 @@ func (c Cli) registerUser(sc *bufio.Scanner, loginReq *auth.LoginRequest) {
 		c.l.Fatal("Error authenticating")
 	}
 
-	if err != saveToKeyRing(res) {
+	if err != SaveToKeyRing(res) {
 		c.l.Fatal("Error authenticating")
 	}
-	c.l.Println(formatAuthResults(res))
+	c.l.Println(utils.FormatAuthResults(res))
 	c.l.Println("Registered successfully")
 
 }
 
-type AuthResponse interface {
-	GetAccessToken() string
-	GetRefreshToken() string
-	GetAccessExpiresAt() int64
-	GetRefreshExpiresAt() int64
-}
-
-func formatAuthResults[T AuthResponse](res T) string {
-	return fmt.Sprintf(`
-			ACCESS TOKEN : %v\n, REFRESH_TOKEN : %v\n,
-			ACCESS_TOKEN_EXPIRES_AT : %v\n,
-			REFRESH_TOKEN_EXPIRES_AT :%v
-	`, res.GetAccessToken(), res.GetRefreshToken(),
-		getDateAndTime(res.GetAccessExpiresAt()),
-		getDateAndTime(res.GetRefreshExpiresAt()),
-	)
-}
-
-func getDateAndTime(milliseconds int64) time.Time {
-	return time.Now().Add(time.Duration(milliseconds) * time.Millisecond)
-}
-
-var (
-	service = "ferry"
-)
-
-func saveToKeyRing(authRes AuthResponse) error {
-	accessTokenExpiry := strconv.FormatInt(authRes.GetAccessExpiresAt(), 10)
-	refreshTokenExpiry := strconv.FormatInt(authRes.GetRefreshExpiresAt(), 10)
-	if err := keyring.Set(service, "access_token", authRes.GetAccessToken()); err != nil {
-		return err
-	}
-	if err := keyring.Set(service, "refresh_token", authRes.GetAccessToken()); err != nil {
-		return err
-	}
-	if err := keyring.Set(service, "access_token_expiry", accessTokenExpiry); err != nil {
-		return err
-	}
-	return keyring.Set(service, "refresh_token_expiry", refreshTokenExpiry)
-}
-
-func GetTokens()(*oauth2.Token, error){
-	accessToken,err := keyring.Get("ferry","access_token");
-	if err != nil{
-		return nil,err
-	}
-	refreshToken,err := keyring.Get("ferry","refresh_token");
-	if err != nil{
-		return nil,err
-	}
-	return &oauth2.Token{
-		AccessToken: accessToken,
-		RefreshToken: refreshToken,
-	},nil
-}
-
 func (c Cli) createGroup() {
 	c.l.Println("Group created successfully")
+	authContext,err := AuthContext()
+	if err != nil{
+		c.l.Printf("Unauthenticated request")
+	}
+	c.groupClient.CreateGroup(c.ctx, &emptypb.Empty{},authContext)
 }

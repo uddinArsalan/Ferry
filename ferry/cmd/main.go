@@ -3,6 +3,7 @@ package main
 import (
 	// "flag"
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -15,18 +16,15 @@ import (
 )
 
 func main() {
-	g, err := client.NewDialWithToken()
+	serverAddr := fmt.Sprintf("localhost:%d", 5051)
+	g, err := client.NewGRPCClient(serverAddr)
 	if err != nil {
-		log.Fatalf("error initialising dial config")
+		log.Fatalf("error initialising grpc client conn")
 	}
-	authClient, err := g.NewAuthClient()
-	if err != nil {
-		log.Fatalf("error initialising auth client")
-	}
-	groupClient, err := g.NewGrouplient()
-	if err != nil {
-		log.Fatalf("error initialising group client")
-	}
+
+	authClient := g.NewAuthClient()
+	groupClient := g.NewGrouplient()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
