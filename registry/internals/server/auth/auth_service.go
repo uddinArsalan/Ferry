@@ -4,12 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 	"time"
 
+	genauth "github.com/uddinArsalan/ferry-proto/auth"
 	"github.com/uddinArsalan/ferry-registry/adapters/password"
 	"github.com/uddinArsalan/ferry-registry/adapters/token"
-	genauth "github.com/uddinArsalan/ferry-registry/proto/auth"
-	"github.com/uddinArsalan/ferry-registry/repository"
+	"github.com/uddinArsalan/ferry-registry/internals/repository"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -61,18 +62,22 @@ func (a *AuthService) Register(ctx context.Context, req *genauth.RegisterRequest
 	hash, err := a.passwordStore.HashAndEncodePassword(req.Password)
 	// need to consider something for error
 	if err != nil {
+		log.Printf("Err hashing or encoding password %v", err.Error())
 		return nil, ErrInternalServer
 	}
 	userID, err := a.authRepo.CreateUser(ctx, req.Name, req.Email, hash)
 	if err != nil {
+		log.Printf("Err creating user %v", err.Error())
 		return nil, ErrInternalServer
 	}
 	accessToken, err := a.tokenStore.GenerateToken(userID, AccessTokenTTL)
 	if err != nil {
+		log.Printf("Err generating token %v", err.Error())
 		return nil, ErrInternalServer
 	}
 	refreshToken, err := a.tokenStore.GenerateRefreshToken()
 	if err != nil {
+		log.Printf("Err generating refresh token %v", err.Error())
 		return nil, ErrInternalServer
 	}
 	now := time.Now()
@@ -81,6 +86,7 @@ func (a *AuthService) Register(ctx context.Context, req *genauth.RegisterRequest
 	refreshTokenExpiresAt := now.Add(RefreshTokenTTL)
 
 	if err = a.authRepo.CreateRefreshToken(ctx, userID, a.tokenStore.HashToken(refreshToken), refreshTokenExpiresAt); err != nil {
+		log.Printf("Err creating refresh token %v", err.Error())
 		return nil, ErrInternalServer
 	}
 	return &genauth.RegisterResponse{
@@ -100,23 +106,28 @@ func (a *AuthService) Login(ctx context.Context, req *genauth.LoginRequest) (*ge
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
+		log.Printf("Err fetching user %v", err.Error())
 		return nil, ErrInternalServer
 	}
 	//compare password
 	match, err := a.passwordStore.ComparePasswordAndHash(req.Password, user.PasswordHash)
 	if err != nil {
+		log.Printf("Err in compare and hash password %v", err.Error())
 		return nil, ErrInternalServer
 	}
 	if !match {
+		log.Println("password doesnt match")
 		return nil, ErrInvalidCredentials
 	}
 
 	accessToken, err := a.tokenStore.GenerateToken(user.ID, AccessTokenTTL)
 	if err != nil {
+		log.Printf("Err generating token %v", err.Error())
 		return nil, ErrInternalServer
 	}
 	refreshToken, err := a.tokenStore.GenerateRefreshToken()
 	if err != nil {
+		log.Printf("Err generating refresh token %v", err.Error())
 		return nil, ErrInternalServer
 	}
 	now := time.Now()
@@ -125,6 +136,7 @@ func (a *AuthService) Login(ctx context.Context, req *genauth.LoginRequest) (*ge
 	refreshTokenExpiresAt := now.Add(RefreshTokenTTL)
 
 	if err = a.authRepo.CreateRefreshToken(ctx, user.ID, a.tokenStore.HashToken(refreshToken), refreshTokenExpiresAt); err != nil {
+		log.Printf("Err creating refresh token %v", err.Error())
 		return nil, ErrInternalServer
 	}
 	return &genauth.LoginResponse{

@@ -5,18 +5,25 @@ import (
 	"log"
 	"net"
 
+	"github.com/joho/godotenv"
+	genauth "github.com/uddinArsalan/ferry-proto/auth"
+	gengroup "github.com/uddinArsalan/ferry-proto/group"
 	"github.com/uddinArsalan/ferry-registry/adapters/password"
 	"github.com/uddinArsalan/ferry-registry/adapters/token"
-	"github.com/uddinArsalan/ferry-registry/db"
-	genauth "github.com/uddinArsalan/ferry-registry/proto/auth"
-	gengroup "github.com/uddinArsalan/ferry-registry/proto/group"
-	"github.com/uddinArsalan/ferry-registry/repository"
-	auth "github.com/uddinArsalan/ferry-registry/server/auth"
-	group "github.com/uddinArsalan/ferry-registry/server/group"
+	"github.com/uddinArsalan/ferry-registry/interceptor"
+	"github.com/uddinArsalan/ferry-registry/internals/db"
+	"github.com/uddinArsalan/ferry-registry/internals/repository"
+	auth "github.com/uddinArsalan/ferry-registry/internals/server/auth"
+	group "github.com/uddinArsalan/ferry-registry/internals/server/group"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 	db, err := db.NewDB()
 	if err != nil {
 		log.Fatalf("Error initialising db connection %v", err.Error())
@@ -29,8 +36,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error starting grpc server %v", err.Error())
 	}
+	creds, err := credentials.NewServerTLSFromFile("../certs/ferry.crt", "../certs/ferry.key")
+	if err != nil {
+		log.Fatalf("failed to create credentials: %v", err)
+	}
 
-	grpcServer := grpc.NewServer()
+	authInterceptor := interceptor.NewAuthInterceptor(tokenStore)
+
+	grpcServer := grpc.NewServer(grpc.Creds(creds), grpc.UnaryInterceptor(authInterceptor.UnaryInterceptor))
 
 	authRepo := repository.NewAuthRepo(db)
 

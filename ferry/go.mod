@@ -2,6 +2,22 @@ module github.com/uddinArsalan/ferry
 
 go 1.26.3
 
-require github.com/fsnotify/fsnotify v1.10.1
+require (
+	github.com/fsnotify/fsnotify v1.10.1
+	github.com/uddinArsalan/ferry-proto v0.0.0-20260916203224-29a2b034e7d9
+	github.com/zalando/go-keyring v0.2.8
+	golang.org/x/oauth2 v0.36.0
+	golang.org/x/term v0.45.0
+	google.golang.org/grpc v1.83.2
+)
 
-require golang.org/x/sys v0.13.0 // indirect
+require (
+	cloud.google.com/go/compute/metadata v0.9.0 // indirect
+	github.com/danieljoos/wincred v1.2.3 // indirect
+	github.com/godbus/dbus/v5 v5.2.2 // indirect
+	golang.org/x/net v0.58.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/text v0.41.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa // indirect
+	google.golang.org/protobuf v1.36.11 // indirect
+)
