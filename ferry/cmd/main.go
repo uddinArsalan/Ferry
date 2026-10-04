@@ -16,14 +16,14 @@ import (
 )
 
 func main() {
-	serverAddr := fmt.Sprintf("localhost:%d", 5051)
+	serverAddr := fmt.Sprintf("127.0.0.1:%d", 5051)
 	g, err := client.NewGRPCClient(serverAddr)
 	if err != nil {
 		log.Fatalf("error initialising grpc client conn")
 	}
 
 	authClient := g.NewAuthClient()
-	groupClient := g.NewGrouplient()
+	groupClient := g.NewGroupClient()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net"
 
@@ -32,7 +31,7 @@ func main() {
 	tokenStore := token.NewToken()
 	passwordStore := password.NewPasswordManager()
 
-	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", 5051))
+	lis, err := net.Listen("tcp", "127.0.0.1:5051")
 	if err != nil {
 		log.Fatalf("Error starting grpc server %v", err.Error())
 	}
