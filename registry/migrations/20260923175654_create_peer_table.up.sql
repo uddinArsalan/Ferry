@@ -1,0 +1,7 @@
+CREATE TABLE peers(
+    id BIGSERIAL PRIMARY KEY,
+    name TEXT NOT NULL ,
+    address INET NOT NULL,
+    port INTEGER NOT NULL,
+    last_seen TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

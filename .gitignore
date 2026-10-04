@@ -1,1 +1,13 @@
 certs/*.key
+
+# peer - id ,name,address,port ,last_seen
+# req from other peers to add in some groups
+# when peer add in group they have to provide local dir for sync
+
+# pending req we have to either poll or db or registry send to peer (how need to decide)
+# join request table -> req_id, from_peer, to_peer , group_id , status 
+# membership table -> grp_id , peer_id
+
+# group - gid,name
+
+# group peers have local dir that shouldn't be store in db we can have it locally 

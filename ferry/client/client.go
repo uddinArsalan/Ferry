@@ -12,7 +12,7 @@ type GRPCClient struct {
 }
 
 func NewGRPCClient(serverAddr string) (*GRPCClient, error) {
-	creds, err := credentials.NewClientTLSFromFile("../certs/myCA.pem", "ferry")
+	creds, err := credentials.NewClientTLSFromFile("../certs/ferry.crt", "localhost")
 	if err != nil {
 		return nil, err
 	}
@@ -29,6 +29,6 @@ func (g GRPCClient) NewAuthClient() auth.AuthServiceClient {
 	return auth.NewAuthServiceClient(g.conn)
 }
 
-func (g *GRPCClient) NewGrouplient() group.GroupServiceClient {
+func (g *GRPCClient) NewGroupClient() group.GroupServiceClient {
 	return group.NewGroupServiceClient(g.conn)
 }
