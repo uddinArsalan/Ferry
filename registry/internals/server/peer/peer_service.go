@@ -6,7 +6,13 @@ import (
 	genpeer "github.com/uddinArsalan/ferry-proto/peer"
 	"github.com/uddinArsalan/ferry-registry/interceptor"
 	"github.com/uddinArsalan/ferry-registry/internals/repository"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+)
+
+var (
+	ErrPeerNotFound = status.Error(codes.NotFound, "peer not found")
 )
 
 type PeerService struct {
@@ -37,10 +43,41 @@ func (p *PeerService) RegisterPeer(ctx context.Context, req *genpeer.RegisterPee
 
 // return peer details for a given peer id
 func (p *PeerService) GetPeer(ctx context.Context, req *genpeer.PeerID) (*genpeer.Peer, error) {
-	return nil, nil
+	peer, err := p.peerRepo.GetPeerByID(ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
+	if peer == nil {
+		return nil, ErrPeerNotFound
+	}
+	return &genpeer.Peer{
+		Id:      peer.ID,
+		Name:    peer.Name,
+		Port:    peer.Port,
+		Address: peer.Address,
+	}, nil
 }
 
 // return all peers belonging to user
 func (p *PeerService) GetPeers(ctx context.Context, req *emptypb.Empty) (*genpeer.Peers, error) {
-	return nil, nil
+	userID, ok := interceptor.GetUserIDFromContext(ctx)
+	if !ok {
+		return nil, interceptor.ErrUnauthenticated
+	}
+	peers, err := p.peerRepo.GetPeersForUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	var peerList []*genpeer.Peer
+	for _, peer := range peers {
+		peerList = append(peerList, &genpeer.Peer{
+			Id:      peer.ID,
+			Name:    peer.Name,
+			Port:    peer.Port,
+			Address: peer.Address,
+		})
+	}
+	return &genpeer.Peers{
+		Peers: peerList,
+	}, nil
 }
