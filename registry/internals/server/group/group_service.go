@@ -5,47 +5,42 @@ import (
 	"log"
 
 	gengroup "github.com/uddinArsalan/ferry-proto/group"
+	genpeer "github.com/uddinArsalan/ferry-proto/peer"
 	"github.com/uddinArsalan/ferry-registry/interceptor"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"github.com/uddinArsalan/ferry-registry/internals/repository"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var (
-	ErrUnauthenticated = status.Error(codes.Unauthenticated, "unauthenticated")
-)
-
 type GroupServer struct {
+	groupRepo *repository.GroupRepository
 	gengroup.UnimplementedGroupServiceServer
 }
 
-func NewGroupServer() *GroupServer {
-	return &GroupServer{}
+func NewGroupServer(groupRepo *repository.GroupRepository) *GroupServer {
+	return &GroupServer{
+		groupRepo: groupRepo,
+	}
 }
 
-func (g *GroupServer) RegisterPeer(ctx context.Context, peer *gengroup.Peer) (*gengroup.Peer, error) {
-	return nil, nil
+func (g *GroupServer) CreateGroup(ctx context.Context, req *gengroup.CreateGroupRequest) (*gengroup.Group, error) {
+	groupID, err := g.groupRepo.CreateGroup(ctx, req.Name)
+	if err != nil {
+		return nil, err
+	}
+	return &gengroup.GroupID{
+		Id: groupID,
+	}, nil
 }
 
-func (g *GroupServer) CreateGroup(ctx context.Context, void *emptypb.Empty) (*gengroup.Group, error) {
-	userID := ctx.Value(interceptor.UserID{})
-	log.Printf("User ID %v", userID)
-	return nil, nil
-}
-
-func (g *GroupServer) GetGroupsForPeer(ctx context.Context, perryID *gengroup.PeerID) (*gengroup.Groups, error) {
+func (g *GroupServer) GetGroupsForPeer(ctx context.Context, peerID *genpeer.PeerID) (*gengroup.Groups, error) {
 	return nil, nil
 }
 
 func (g *GroupServer) GetGroups(ctx context.Context, void *emptypb.Empty) (*gengroup.Groups, error) {
-	return nil, nil
-}
-
-func (g *GroupServer) GetPeers(context.Context, *emptypb.Empty) (*gengroup.Peers, error) {
-	return nil, nil
-}
-
-func (g *GroupServer) GetPeer(context.Context, *gengroup.PeerID) (*gengroup.Peer, error) {
+	userID, ok := interceptor.GetUserIDFromContext(ctx)
+	if !ok {
+		return nil, interceptor.ErrUnauthenticated
+	}
 	return nil, nil
 }
 

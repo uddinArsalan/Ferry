@@ -7,6 +7,7 @@ import (
 	"github.com/joho/godotenv"
 	genauth "github.com/uddinArsalan/ferry-proto/auth"
 	gengroup "github.com/uddinArsalan/ferry-proto/group"
+	genpeer "github.com/uddinArsalan/ferry-proto/peer"
 	"github.com/uddinArsalan/ferry-registry/adapters/password"
 	"github.com/uddinArsalan/ferry-registry/adapters/token"
 	"github.com/uddinArsalan/ferry-registry/interceptor"
@@ -14,6 +15,7 @@ import (
 	"github.com/uddinArsalan/ferry-registry/internals/repository"
 	auth "github.com/uddinArsalan/ferry-registry/internals/server/auth"
 	group "github.com/uddinArsalan/ferry-registry/internals/server/group"
+	peer "github.com/uddinArsalan/ferry-registry/internals/server/peer"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -45,12 +47,14 @@ func main() {
 	grpcServer := grpc.NewServer(grpc.Creds(creds), grpc.UnaryInterceptor(authInterceptor.UnaryInterceptor))
 
 	authRepo := repository.NewAuthRepo(db)
+	peerRepo := repository.NewPeerRepository(db)
 
 	groupServer := group.NewGroupServer()
+	peerServer := peer.NewPeerService(peerRepo)
 	authServer := auth.NewAuthService(authRepo, passwordStore, tokenStore)
 
 	gengroup.RegisterGroupServiceServer(grpcServer, groupServer)
-
+	genpeer.RegisterPeerServiceServer(grpcServer, peerServer)
 	genauth.RegisterAuthServiceServer(grpcServer, authServer)
 
 	if err := grpcServer.Serve(lis); err != nil {
