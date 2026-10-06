@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 
 	"github.com/uddinArsalan/ferry/peers"
 )
@@ -34,6 +35,10 @@ func (s *Server) Start() error {
 	<-s.blockChan
 
 	return nil
+}
+
+func (s *Server) GetAddressAndPort() []string {
+	return strings.Split(s.ln.Addr().String(), ":")
 }
 
 func (s *Server) AcceptConn() {

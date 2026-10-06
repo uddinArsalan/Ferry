@@ -48,8 +48,9 @@ func main() {
 
 	authRepo := repository.NewAuthRepo(db)
 	peerRepo := repository.NewPeerRepository(db)
+	groupRepo := repository.NewGroupRepository(db)
 
-	groupServer := group.NewGroupServer()
+	groupServer := group.NewGroupServer(groupRepo)
 	peerServer := peer.NewPeerService(peerRepo)
 	authServer := auth.NewAuthService(authRepo, passwordStore, tokenStore)
 

@@ -7,16 +7,19 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"unicode"
 
 	"github.com/uddinArsalan/ferry-proto/auth"
 	"github.com/uddinArsalan/ferry-proto/group"
+	"github.com/uddinArsalan/ferry-proto/peer"
+	"github.com/uddinArsalan/ferry/peers"
+	"github.com/uddinArsalan/ferry/tcp"
 	"github.com/uddinArsalan/ferry/utils"
 	"golang.org/x/term"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type Cli struct {
@@ -24,6 +27,10 @@ type Cli struct {
 	l           *log.Logger
 	authClient  auth.AuthServiceClient
 	groupClient group.GroupServiceClient
+	peerClient  peer.PeerServiceClient
+	sc          *bufio.Scanner
+	pm          peers.PeerManager
+	server      tcp.Server
 }
 
 func NewCli(ctx context.Context, l *log.Logger, authClient auth.AuthServiceClient, groupClient group.GroupServiceClient) Cli {
@@ -32,10 +39,11 @@ func NewCli(ctx context.Context, l *log.Logger, authClient auth.AuthServiceClien
 		l:           l,
 		authClient:  authClient,
 		groupClient: groupClient,
+		sc:          bufio.NewScanner(os.Stdin),
 	}
 }
 
-func (c Cli) TakeUerParams() {
+func (c *Cli) TakeUerParams() {
 	flag.Parse()
 	switch flag.Arg(0) {
 	case "login":
@@ -53,11 +61,10 @@ func (c Cli) TakeUerParams() {
 	}
 }
 
-func (c Cli) login() {
-	sc := bufio.NewScanner(os.Stdin)
+func (c *Cli) login() {
 	c.l.Println("Enter your email:")
-	sc.Scan()
-	email := sc.Text()
+	c.sc.Scan()
+	email := c.sc.Text()
 
 	c.l.Println("Enter your password:")
 	password, err := term.ReadPassword(int(os.Stdin.Fd()))
@@ -76,13 +83,13 @@ func (c Cli) login() {
 			c.l.Println("No user is found with given email")
 			c.l.Println("Would you like to register instead ?")
 			c.l.Println("Yes(Y) or No(N) ?")
-			sc.Scan()
-			ans := strings.ToLowerSpecial(unicode.CaseRanges, sc.Text())
-			if err := sc.Err(); err != nil {
+			c.sc.Scan()
+			ans := strings.ToLowerSpecial(unicode.CaseRanges, c.sc.Text())
+			if err := c.sc.Err(); err != nil {
 				c.l.Fatalf("error:%v", err)
 			}
 			if ans == "yes" || ans == "y" {
-				c.registerUser(sc, &authRequest)
+				c.registerUser(&authRequest)
 			}
 			return
 		}
@@ -96,10 +103,10 @@ func (c Cli) login() {
 	c.l.Println("Logged in successfully")
 }
 
-func (c Cli) registerUser(sc *bufio.Scanner, loginReq *auth.LoginRequest) {
+func (c *Cli) registerUser(loginReq *auth.LoginRequest) {
 	c.l.Println("Enter your name:")
-	sc.Scan()
-	name := sc.Text()
+	c.sc.Scan()
+	name := c.sc.Text()
 	res, err := c.authClient.Register(c.ctx, &auth.RegisterRequest{
 		Email:    loginReq.Email,
 		Password: loginReq.Password,
@@ -117,11 +124,45 @@ func (c Cli) registerUser(sc *bufio.Scanner, loginReq *auth.LoginRequest) {
 
 }
 
-func (c Cli) createGroup() {
-	c.l.Println("Group created successfully")
-	authContext,err := AuthContext()
-	if err != nil{
+func (c *Cli) createGroup() {
+	authContext, err := AuthContext()
+	if err != nil {
 		c.l.Printf("Unauthenticated request")
 	}
-	c.groupClient.CreateGroup(c.ctx, &emptypb.Empty{},authContext)
+	c.l.Println("enter the group name: ")
+	c.sc.Scan()
+	name := c.sc.Text()
+	c.l.Println("Wait till we create your group...")
+	c.groupClient.CreateGroup(c.ctx, &group.CreateGroupRequest{Name: name}, authContext)
+	c.l.Println("Group created successfully")
+}
+
+func (c *Cli) initPeerAndListening() {
+	c.l.Println("Init peer creation and listening")
+	peerID, err := utils.NewId()
+	if err != nil {
+		c.l.Println("some error occurred try after some time")
+		return
+	}
+	c.l.Println("enter the peer name: ")
+	c.sc.Scan()
+	name := c.sc.Text()
+	ln := c.server.GetAddressAndPort()
+	address := ln[0]
+	port, err := strconv.ParseUint(ln[1], 10, 32)
+	if err != nil {
+		c.l.Println("some error occurred try after some time")
+		return
+	}
+	_, err = c.peerClient.RegisterPeer(c.ctx, &peer.RegisterPeerRequest{
+		Name:    name,
+		Address: address,
+		Port:    uint32(port),
+		PeerID:  peerID,
+	})
+	if err != nil {
+		c.l.Println("some error occurred try after some time")
+		return
+	}
+	go c.server.Start()
 }

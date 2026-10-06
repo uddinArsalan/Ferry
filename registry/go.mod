@@ -6,7 +6,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/joho/godotenv v1.5.1
-	github.com/uddinArsalan/ferry-proto v0.0.0-20261005143507-8c3040047b63
+	github.com/uddinArsalan/ferry-proto v0.0.0-20261006194751-1ef244e57d7f
 	golang.org/x/crypto v0.57.0
 	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.12
