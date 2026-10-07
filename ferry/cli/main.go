@@ -158,7 +158,7 @@ func (c *Cli) initPeerAndListening() {
 		Name:    name,
 		Address: address,
 		Port:    uint32(port),
-		PeerID:  peerID,
+		PeerId:  peerID,
 	})
 	if err != nil {
 		c.l.Println("some error occurred try after some time")

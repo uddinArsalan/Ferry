@@ -26,6 +26,8 @@ github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 github.com/uddinArsalan/ferry-proto v0.0.0-20261006194751-1ef244e57d7f h1:O0VellaRejl22iByQqMWIenGYbTNMEs6zVc0JPUp+9U=
 github.com/uddinArsalan/ferry-proto v0.0.0-20261006194751-1ef244e57d7f/go.mod h1:8kaZTLGB5jS4mxcgP/YU7U7sOo8u1a4KAEKOyMnPgVQ=
+github.com/uddinArsalan/ferry-proto v0.0.0-20261007202106-f0ab78273a40 h1:1siGtp2MMA4LzWKaQm8tqFpA6b6KLnnYKK1aj2/waaM=
+github.com/uddinArsalan/ferry-proto v0.0.0-20261007202106-f0ab78273a40/go.mod h1:8kaZTLGB5jS4mxcgP/YU7U7sOo8u1a4KAEKOyMnPgVQ=
 golang.org/x/crypto v0.57.0 h1:3ZVCjf8Ggz7zneR/EHRVx68Ctf+2pmIMP2UFhh9cC6M=
 golang.org/x/crypto v0.57.0/go.mod h1:Fdz0i5U6CoizGwLda9DttjSk6qlZo25zYNtR+ycvuZA=
 golang.org/x/net v0.59.0 h1:5zfYln+w5XCxwrnMMJPufRgNoXEaGxl0wo5GqPXyues=

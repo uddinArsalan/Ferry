@@ -48,14 +48,14 @@ func (s *Server) AcceptConn() {
 			continue
 		}
 		log.Printf("Client connected %v", conn.RemoteAddr().String())
-		if remoteAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-			remoteIP := remoteAddr.IP
-			remotePort := remoteAddr.Port
-			peerId, err := s.pm.AddPeer(remoteIP.String(), remotePort, conn)
-			if err == nil {
-				s.pm.SetPeerId(peerId)
-			}
-		}
+		// if remoteAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
+		// 	remoteIP := remoteAddr.IP
+		// 	remotePort := remoteAddr.Port
+		// 	peerId, err := s.pm.AddPeer(remoteIP.String(), remotePort, conn)
+		// 	if err == nil {
+		// 		s.pm.SetPeerId(peerId)
+		// 	}
+		// }
 
 		go s.ReadFromConn(conn)
 	}
@@ -76,7 +76,7 @@ func (s Server) ReadFromConn(conn net.Conn) {
 func (s Server) ConnectToPeers() {
 	for {
 		for _, peerId := range s.pm.GetPeersToConnect() {
-			peer, ok := s.pm.GetPeerConn(peerId)
+			peer, ok := s.pm.GetPeerDetail(peerId)
 			if !ok {
 				continue
 			}

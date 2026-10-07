@@ -30,6 +30,8 @@ github.com/uddinArsalan/ferry-proto v0.0.0-20260916203224-29a2b034e7d9 h1:bvcgMi
 github.com/uddinArsalan/ferry-proto v0.0.0-20260916203224-29a2b034e7d9/go.mod h1:zgLuYrEz/SgWlXrk9e91qDLNKH8iCKHAfhvo4dANcSE=
 github.com/uddinArsalan/ferry-proto v0.0.0-20261006194751-1ef244e57d7f h1:O0VellaRejl22iByQqMWIenGYbTNMEs6zVc0JPUp+9U=
 github.com/uddinArsalan/ferry-proto v0.0.0-20261006194751-1ef244e57d7f/go.mod h1:8kaZTLGB5jS4mxcgP/YU7U7sOo8u1a4KAEKOyMnPgVQ=
+github.com/uddinArsalan/ferry-proto v0.0.0-20261007202106-f0ab78273a40 h1:1siGtp2MMA4LzWKaQm8tqFpA6b6KLnnYKK1aj2/waaM=
+github.com/uddinArsalan/ferry-proto v0.0.0-20261007202106-f0ab78273a40/go.mod h1:8kaZTLGB5jS4mxcgP/YU7U7sOo8u1a4KAEKOyMnPgVQ=
 github.com/zalando/go-keyring v0.2.8 h1:6sD/Ucpl7jNq10rM2pgqTs0sZ9V3qMrqfIIy5YPccHs=
 github.com/zalando/go-keyring v0.2.8/go.mod h1:tsMo+VpRq5NGyKfxoBVjCuMrG47yj8cmakZDO5QGii0=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=
