@@ -32,7 +32,7 @@ func (p *PeerService) RegisterPeer(ctx context.Context, req *genpeer.RegisterPee
 	if !ok {
 		return nil, interceptor.ErrUnauthenticated
 	}
-	peerID, err := p.peerRepo.CreatePeer(ctx, userID, req.Name, req.Port, req.Address)
+	peerID, err := p.peerRepo.CreatePeer(ctx, userID, req.PeerId, req.Name, req.Port, req.Address)
 	if err != nil {
 		return nil, err
 	}
@@ -42,8 +42,8 @@ func (p *PeerService) RegisterPeer(ctx context.Context, req *genpeer.RegisterPee
 }
 
 // return peer details for a given peer id
-func (p *PeerService) GetPeer(ctx context.Context, req *genpeer.PeerID) (*genpeer.Peer, error) {
-	peer, err := p.peerRepo.GetPeerByID(ctx, req.Id)
+func (p *PeerService) GetPeer(ctx context.Context, req *genpeer.GetPeerRequest) (*genpeer.Peer, error) {
+	peer, err := p.peerRepo.GetPeerByPeerID(ctx, req.PeerId)
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +52,7 @@ func (p *PeerService) GetPeer(ctx context.Context, req *genpeer.PeerID) (*genpee
 	}
 	return &genpeer.Peer{
 		Id:      peer.ID,
+		PeerId:  peer.PeerID,
 		Name:    peer.Name,
 		Port:    peer.Port,
 		Address: peer.Address,
@@ -72,6 +73,7 @@ func (p *PeerService) GetPeers(ctx context.Context, req *emptypb.Empty) (*genpee
 	for _, peer := range peers {
 		peerList = append(peerList, &genpeer.Peer{
 			Id:      peer.ID,
+			PeerId:  peer.PeerID,
 			Name:    peer.Name,
 			Port:    peer.Port,
 			Address: peer.Address,

@@ -17,10 +17,10 @@ func NewPeerRepository(db *sql.DB) *PeerRepository {
 	}
 }
 
-func (r *PeerRepository) CreatePeer(ctx context.Context, userID int64, name string, port uint32, address string) (int64, error) {
-	query := `INSERT INTO peers (user_id, name, port, address) VALUES ($1, $2, $3, $4) RETURNING id`
+func (r *PeerRepository) CreatePeer(ctx context.Context, userID int64, localPeerID, name string, port uint32, address string) (int64, error) {
+	query := `INSERT INTO peers (user_id,peer_id, name, port, address) VALUES ($1, $2, $3, $4) RETURNING id`
 	var peerID int64
-	row := r.db.QueryRowContext(ctx, query, userID, name, port, address)
+	row := r.db.QueryRowContext(ctx, query, userID, localPeerID, name, port, address)
 	if err := row.Scan(&peerID); err != nil {
 		return -1, err
 	}
@@ -28,7 +28,7 @@ func (r *PeerRepository) CreatePeer(ctx context.Context, userID int64, name stri
 }
 
 func (r *PeerRepository) GetPeersForUser(ctx context.Context, userID int64) ([]*domain.Peer, error) {
-	query := `SELECT id, user_id, name, port, address FROM peers WHERE user_id = $1`
+	query := `SELECT id, user_id,peer_id, name, port, address FROM peers WHERE user_id = $1`
 	rows, err := r.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, err
@@ -41,7 +41,7 @@ func (r *PeerRepository) GetPeersForUser(ctx context.Context, userID int64) ([]*
 			return nil, err
 		}
 		var peer domain.Peer
-		if err := rows.Scan(&peer.ID, &peer.UserID, &peer.Name, &peer.Port, &peer.Address); err != nil {
+		if err := rows.Scan(&peer.ID, &peer.UserID, &peer.PeerID, &peer.Name, &peer.Port, &peer.Address); err != nil {
 			return nil, err
 		}
 		peers = append(peers, &peer)
@@ -50,11 +50,11 @@ func (r *PeerRepository) GetPeersForUser(ctx context.Context, userID int64) ([]*
 	return peers, nil
 }
 
-func (r *PeerRepository) GetPeerByID(ctx context.Context, peerID int64) (*domain.Peer, error) {
-	query := `SELECT id, user_id, name, port, address FROM peers WHERE id = $1`
-	row := r.db.QueryRowContext(ctx, query, peerID)
+func (r *PeerRepository) GetPeerByPeerID(ctx context.Context, localPeerID string) (*domain.Peer, error) {
+	query := `SELECT id, user_id,peer_id, name, port, address FROM peers WHERE peer_id = $1`
+	row := r.db.QueryRowContext(ctx, query, localPeerID)
 	var peer domain.Peer
-	if err := row.Scan(&peer.ID, &peer.UserID, &peer.Name, &peer.Port, &peer.Address); err != nil {
+	if err := row.Scan(&peer.ID, &peer.UserID, &peer.PeerID, &peer.Name, &peer.Port, &peer.Address); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil // No peer found with the given ID
 		}

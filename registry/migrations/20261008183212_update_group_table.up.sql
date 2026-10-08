@@ -1,0 +1,2 @@
+ALTER TABLE groups 
+    ADD COLUMN group_id VARCHAR UNIQUE NOT NULL;

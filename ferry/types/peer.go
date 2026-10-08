@@ -7,7 +7,7 @@ import (
 type Peer struct {
 	ID        string // this id represent the local peer id we keep not db
 	Address   string
-	Port      int
+	Port      uint32
 	LastSeen  time.Time
 	Connected bool
 }
@@ -20,6 +20,7 @@ type PeerLocal struct {
 
 // A sync group contains the peers that synchronize the same logical directory.
 type SyncGroup struct {
-	SyncID string
-	Peers  map[string]PeerLocal
+	GroupID string
+	Name    string
+	Peers   map[string]PeerLocal
 }

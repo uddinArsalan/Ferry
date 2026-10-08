@@ -28,7 +28,7 @@ func NewGroupServer(groupRepo *repository.GroupRepository) *GroupServer {
 }
 
 func (g *GroupServer) CreateGroup(ctx context.Context, req *gengroup.CreateGroupRequest) (*gengroup.GroupID, error) {
-	groupID, err := g.groupRepo.CreateGroup(ctx, req.Name)
+	groupID, err := g.groupRepo.CreateGroup(ctx, req.GroupId, req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -37,16 +37,17 @@ func (g *GroupServer) CreateGroup(ctx context.Context, req *gengroup.CreateGroup
 	}, nil
 }
 
-func (g *GroupServer) GetGroupsForPeer(ctx context.Context, peerID *genpeer.PeerID) (*gengroup.Groups, error) {
-	groups, err := g.groupRepo.GetGroupsForPeer(ctx, peerID.Id)
+func (g *GroupServer) GetGroupsForPeer(ctx context.Context, req *genpeer.GetPeerRequest) (*gengroup.Groups, error) {
+	groups, err := g.groupRepo.GetGroupsForPeer(ctx, req.PeerId)
 	if err != nil {
-		log.Printf("Error retrieving groups for peer %d: %v", peerID.Id, err)
+		log.Printf("Error retrieving groups for peer %d: %v", req.PeerId, err)
 		return nil, err
 	}
 	var groupList []*gengroup.Group
 	for _, group := range groups {
 		groupList = append(groupList, &gengroup.Group{
 			Id:        group.ID,
+			GroupId:   group.GroupID,
 			Name:      group.Name,
 			UserId:    group.UserID,
 			CreatedAt: timestamppb.New(group.CreatedAt),
@@ -71,6 +72,7 @@ func (g *GroupServer) GetGroups(ctx context.Context, void *emptypb.Empty) (*geng
 	for _, group := range groups {
 		groupList = append(groupList, &gengroup.Group{
 			Id:        group.ID,
+			GroupId:   group.GroupID,
 			Name:      group.Name,
 			UserId:    group.UserID,
 			CreatedAt: timestamppb.New(group.CreatedAt),
@@ -81,8 +83,8 @@ func (g *GroupServer) GetGroups(ctx context.Context, void *emptypb.Empty) (*geng
 	}, nil
 }
 
-func (g *GroupServer) GetGroup(ctx context.Context, req *gengroup.GroupID) (*gengroup.Group, error) {
-	group, err := g.groupRepo.GetGroupByID(ctx, req.Id)
+func (g *GroupServer) GetGroup(ctx context.Context, req *gengroup.GetGroupRequest) (*gengroup.Group, error) {
+	group, err := g.groupRepo.GetGroupByGrpID(ctx, req.GroupId)
 	if err != nil {
 		return nil, err
 	}
@@ -91,6 +93,7 @@ func (g *GroupServer) GetGroup(ctx context.Context, req *gengroup.GroupID) (*gen
 	}
 	return &gengroup.Group{
 		Id:        group.ID,
+		GroupId:   group.GroupID,
 		Name:      group.Name,
 		UserId:    group.UserID,
 		CreatedAt: timestamppb.New(group.CreatedAt),

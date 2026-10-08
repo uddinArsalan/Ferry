@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/uddinArsalan/ferry/types"
-	"github.com/uddinArsalan/ferry/utils"
 )
 
 // we might need mutexes
@@ -41,7 +40,7 @@ func (p *PeerManager) GetPeerId() string {
 	return p.currPeerId
 }
 
-func (p *PeerManager) AddPeer(peerId, address string, port int, conn net.Conn) (string, error) {
+func (p *PeerManager) AddPeer(peerId, address string, port uint32) {
 	p.SetPeerId(peerId)
 	peer := types.Peer{
 		ID:        peerId,
@@ -53,7 +52,6 @@ func (p *PeerManager) AddPeer(peerId, address string, port int, conn net.Conn) (
 	p.mu.Lock()
 	p.peers[peerId] = &peer
 	p.mu.Unlock()
-	return peerId, nil
 }
 
 func (p *PeerManager) GetPeerDetail(peerId string) (*types.Peer, bool) {
@@ -114,18 +112,14 @@ func (p *PeerManager) AddPeerToGroup(peerId, grpId, localDir string) error {
 	return nil
 }
 
-func (p *PeerManager) AddGroup() (string, error) {
-	grpId, err := utils.NewId()
-	if err != nil {
-		return "", err
-	}
+func (p *PeerManager) AddGroup(grpId, name string) {
 	p.mu.Lock()
 	p.groups[grpId] = &types.SyncGroup{
-		SyncID: grpId,
-		Peers:  map[string]types.PeerLocal{},
+		GroupID: grpId,
+		Name:    name,
+		Peers:   map[string]types.PeerLocal{},
 	}
 	p.mu.Unlock()
-	return grpId, nil
 }
 
 func (p *PeerManager) RemovePeerFromAllGroups(peerId string) {

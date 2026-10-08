@@ -48,6 +48,10 @@ func (c *Cli) TakeUerParams() {
 	switch flag.Arg(0) {
 	case "login":
 		c.login()
+	case "init":
+		c.initPeerAndListening()
+	case "refresh":
+		c.refresh()
 	case "create":
 		switch flag.Arg(1) {
 		case "group":
@@ -103,6 +107,25 @@ func (c *Cli) login() {
 	c.l.Println("Logged in successfully")
 }
 
+func (c *Cli) refresh() {
+	authContext, err := AuthContext()
+	if err != nil {
+		c.l.Fatal("Unauthenticated request")
+	}
+	c.l.Println("Refreshing tokens.")
+	token, err := getTokens()
+	if err != nil {
+		c.l.Fatal("error in getting token")
+	}
+	refreshReq := &auth.RefreshRequest{
+		RefreshToken: token.RefreshToken,
+	}
+	_, err = c.authClient.Refresh(c.ctx, refreshReq, authContext)
+	if err != nil {
+		c.l.Fatal("error in token refresh")
+	}
+}
+
 func (c *Cli) registerUser(loginReq *auth.LoginRequest) {
 	c.l.Println("Enter your name:")
 	c.sc.Scan()
@@ -121,7 +144,6 @@ func (c *Cli) registerUser(loginReq *auth.LoginRequest) {
 	}
 	c.l.Println(utils.FormatAuthResults(res))
 	c.l.Println("Registered successfully")
-
 }
 
 func (c *Cli) createGroup() {
@@ -133,36 +155,51 @@ func (c *Cli) createGroup() {
 	c.sc.Scan()
 	name := c.sc.Text()
 	c.l.Println("Wait till we create your group...")
-	c.groupClient.CreateGroup(c.ctx, &group.CreateGroupRequest{Name: name}, authContext)
-	c.l.Println("Group created successfully")
+	grpId, err := utils.NewId()
+	if err != nil {
+		c.l.Println("error creating group, try after some time")
+	}
+	c.groupClient.CreateGroup(c.ctx, &group.CreateGroupRequest{GroupId: grpId, Name: name}, authContext)
+	c.pm.AddGroup(grpId, name)
+	c.l.Printf("Group created successfully Group ID = %v", grpId)
 }
 
 func (c *Cli) initPeerAndListening() {
 	c.l.Println("Init peer creation and listening")
-	peerID, err := utils.NewId()
+	isPeerExists := true
+	peerID, err := GetPeerId()
 	if err != nil {
-		c.l.Println("some error occurred try after some time")
-		return
+		isPeerExists = true
+		peerID, err = utils.NewId()
+		if err != nil {
+			c.l.Fatal("some error occurred try after some time")
+		}
 	}
-	c.l.Println("enter the peer name: ")
-	c.sc.Scan()
-	name := c.sc.Text()
-	ln := c.server.GetAddressAndPort()
-	address := ln[0]
-	port, err := strconv.ParseUint(ln[1], 10, 32)
-	if err != nil {
-		c.l.Println("some error occurred try after some time")
-		return
-	}
-	_, err = c.peerClient.RegisterPeer(c.ctx, &peer.RegisterPeerRequest{
-		Name:    name,
-		Address: address,
-		Port:    uint32(port),
-		PeerId:  peerID,
-	})
-	if err != nil {
-		c.l.Println("some error occurred try after some time")
-		return
+	if !isPeerExists {
+		c.l.Println("enter the peer name: ")
+		c.sc.Scan()
+		name := c.sc.Text()
+		ln := c.server.GetAddressAndPort()
+		address := ln[0]
+		port, err := strconv.ParseUint(ln[1], 10, 32)
+		if err != nil {
+			c.l.Println("some error occurred try after some time")
+			return
+		}
+		_, err = c.peerClient.RegisterPeer(c.ctx, &peer.RegisterPeerRequest{
+			Name:    name,
+			Address: address,
+			Port:    uint32(port),
+			PeerId:  peerID,
+		})
+		if err != nil {
+			c.l.Println("some error occurred try after some time")
+			return
+		}
+		c.pm.AddPeer(peerID, address, uint32(port))
+		c.l.Printf("peer created successfully Peer ID = %v", peerID)
+	} else {
+		c.l.Printf("Ferry is already initialized. Peer ID = %v", peerID)
 	}
 	go c.server.Start()
 }

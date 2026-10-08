@@ -29,6 +29,14 @@ func SaveToKeyRing(authRes utils.AuthResponse) error {
 	return keyring.Set(service, "refresh_token_expiry", refreshTokenExpiry)
 }
 
+func SavePeerID(localPeerId string) error {
+	return keyring.Set(service, "peer_id", localPeerId)
+}
+
+func GetPeerId() (string, error) {
+	return keyring.Get(service, "peer_id")
+}
+
 func getTokens() (*oauth2.Token, error) {
 	accessToken, err := keyring.Get(service, "access_token")
 	if err != nil {
@@ -60,6 +68,5 @@ func AuthContext() (grpc.CallOption, error) {
 	tokenSrc := oauth.TokenSource{
 		TokenSource: TokenSrc{},
 	}
-
 	return grpc.PerRPCCredentials(tokenSrc), nil
 }
