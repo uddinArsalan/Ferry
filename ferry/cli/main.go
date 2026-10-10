@@ -14,6 +14,7 @@ import (
 	"github.com/uddinArsalan/ferry-proto/auth"
 	"github.com/uddinArsalan/ferry-proto/group"
 	"github.com/uddinArsalan/ferry-proto/peer"
+	"github.com/uddinArsalan/ferry/keyring"
 	"github.com/uddinArsalan/ferry/peers"
 	"github.com/uddinArsalan/ferry/tcp"
 	"github.com/uddinArsalan/ferry/utils"
@@ -29,16 +30,27 @@ type Cli struct {
 	groupClient group.GroupServiceClient
 	peerClient  peer.PeerServiceClient
 	sc          *bufio.Scanner
-	pm          peers.PeerManager
-	server      tcp.Server
+	pm          *peers.PeerManager
+	server      *tcp.Server
 }
 
-func NewCli(ctx context.Context, l *log.Logger, authClient auth.AuthServiceClient, groupClient group.GroupServiceClient) Cli {
+func NewCli(
+	ctx context.Context,
+	l *log.Logger,
+	authClient auth.AuthServiceClient,
+	groupClient group.GroupServiceClient,
+	peerClient peer.PeerServiceClient,
+	pm *peers.PeerManager,
+	server *tcp.Server,
+) Cli {
 	return Cli{
 		ctx:         ctx,
 		l:           l,
 		authClient:  authClient,
 		groupClient: groupClient,
+		peerClient:  peerClient,
+		pm:          pm,
+		server:      server,
 		sc:          bufio.NewScanner(os.Stdin),
 	}
 }
@@ -100,11 +112,11 @@ func (c *Cli) login() {
 		fmt.Println("Error authenticating", err.Error())
 		return
 	}
-	if err != SaveToKeyRing(res) {
+	if err = keyring.SaveToKeyRing(res); err != nil {
 		c.l.Fatal("Error authenticating")
 	}
-	c.l.Println(utils.FormatAuthResults(res))
 	c.l.Println("Logged in successfully")
+	c.l.Println(utils.FormatAuthResults(res))
 }
 
 func (c *Cli) refresh() {
@@ -113,17 +125,19 @@ func (c *Cli) refresh() {
 		c.l.Fatal("Unauthenticated request")
 	}
 	c.l.Println("Refreshing tokens.")
-	token, err := getTokens()
+	token, err := keyring.GetTokens()
 	if err != nil {
-		c.l.Fatal("error in getting token")
+		c.l.Fatalf("error in getting token %v", err.Error())
 	}
 	refreshReq := &auth.RefreshRequest{
 		RefreshToken: token.RefreshToken,
 	}
-	_, err = c.authClient.Refresh(c.ctx, refreshReq, authContext)
+	res, err := c.authClient.Refresh(c.ctx, refreshReq, authContext)
 	if err != nil {
 		c.l.Fatal("error in token refresh")
 	}
+	c.l.Println("Tokens refreshed successfully...")
+	c.l.Println(utils.FormatAuthResults(res))
 }
 
 func (c *Cli) registerUser(loginReq *auth.LoginRequest) {
@@ -139,7 +153,7 @@ func (c *Cli) registerUser(loginReq *auth.LoginRequest) {
 		c.l.Fatal("Error authenticating")
 	}
 
-	if err != SaveToKeyRing(res) {
+	if err != keyring.SaveToKeyRing(res) {
 		c.l.Fatal("Error authenticating")
 	}
 	c.l.Println(utils.FormatAuthResults(res))
@@ -149,7 +163,7 @@ func (c *Cli) registerUser(loginReq *auth.LoginRequest) {
 func (c *Cli) createGroup() {
 	authContext, err := AuthContext()
 	if err != nil {
-		c.l.Printf("Unauthenticated request")
+		c.l.Fatal("Unauthenticated request")
 	}
 	c.l.Println("enter the group name: ")
 	c.sc.Scan()
@@ -157,17 +171,20 @@ func (c *Cli) createGroup() {
 	c.l.Println("Wait till we create your group...")
 	grpId, err := utils.NewId()
 	if err != nil {
-		c.l.Println("error creating group, try after some time")
+		c.l.Fatal("error creating group, try after some time")
 	}
-	c.groupClient.CreateGroup(c.ctx, &group.CreateGroupRequest{GroupId: grpId, Name: name}, authContext)
 	c.pm.AddGroup(grpId, name)
-	c.l.Printf("Group created successfully Group ID = %v", grpId)
+	_, err = c.groupClient.CreateGroup(c.ctx, &group.CreateGroupRequest{GroupId: grpId, Name: name}, authContext)
+	if err != nil {
+		c.l.Fatalf("error creating group, try after some time %v", err.Error())
+	}
+	c.l.Printf("Group created successfully Group ID = %v\n", grpId)
 }
 
 func (c *Cli) initPeerAndListening() {
 	c.l.Println("Init peer creation and listening")
 	isPeerExists := true
-	peerID, err := GetPeerId()
+	peerID, err := keyring.GetPeerId()
 	if err != nil {
 		isPeerExists = true
 		peerID, err = utils.NewId()

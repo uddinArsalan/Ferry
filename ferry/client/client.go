@@ -3,6 +3,7 @@ package client
 import (
 	auth "github.com/uddinArsalan/ferry-proto/auth"
 	group "github.com/uddinArsalan/ferry-proto/group"
+	peer "github.com/uddinArsalan/ferry-proto/peer"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -31,4 +32,8 @@ func (g GRPCClient) NewAuthClient() auth.AuthServiceClient {
 
 func (g *GRPCClient) NewGroupClient() group.GroupServiceClient {
 	return group.NewGroupServiceClient(g.conn)
+}
+
+func (g *GRPCClient) NewPeerClient() peer.PeerServiceClient {
+	return peer.NewPeerServiceClient(g.conn)
 }

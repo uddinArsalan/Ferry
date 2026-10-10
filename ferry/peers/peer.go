@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/uddinArsalan/ferry/keyring"
 	"github.com/uddinArsalan/ferry/types"
 )
 
@@ -25,10 +26,16 @@ type PeerManager struct {
 }
 
 func NewPeerManager() *PeerManager {
+	currPeerId, err := keyring.GetPeerId()
+	if err != nil {
+		currPeerId = ""
+	}
 	return &PeerManager{
+		currPeerId:    currPeerId,
 		peers:         make(map[string]*types.Peer),
 		peersGroupMap: make(map[string]map[string]struct{}),
 		groups:        make(map[string]*types.SyncGroup),
+		connMap:       make(map[string]map[string]net.Conn),
 	}
 }
 

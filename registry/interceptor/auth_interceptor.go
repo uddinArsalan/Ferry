@@ -46,13 +46,13 @@ func (a AuthInterceptor) UnaryInterceptor(ctx context.Context, req any, info *gr
 	token := strings.TrimPrefix(authorization[0], "Bearer ")
 	claims, err := a.tokenStore.VerifyToken(token)
 	if err != nil {
-		log.Fatalf("invalid token %v", err.Error())
+		log.Printf("invalid token %v", err.Error())
 		return nil, errInvalidToken
 	}
 	ctxWithClaim := context.WithValue(ctx, UserID{}, claims.Subject)
 	m, err := handler(ctxWithClaim, req)
 	if err != nil {
-		log.Fatalf("RPC failed with error: %v", err)
+		log.Printf("RPC failed with error: %v", err)
 		return nil, err
 	}
 	return m, nil

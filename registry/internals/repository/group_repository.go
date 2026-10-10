@@ -19,7 +19,7 @@ func (r *GroupRepository) CreateGroup(ctx context.Context, grpId, name string) (
 	query := `INSERT INTO groups (name,group_id) VALUES ($1,$2) RETURNING id`
 	// this represent db table pk
 	var groupID int64
-	row := r.db.QueryRow(query, name, grpId)
+	row := r.db.QueryRowContext(ctx, query, name, grpId)
 	if err := row.Scan(&groupID); err != nil {
 		return -1, err
 	}
@@ -69,10 +69,7 @@ func (r *GroupRepository) GetGroupsForPeer(ctx context.Context, localPeerID stri
 	defer tx.Rollback()
 	var peerID int64
 	query1 := `SELECT id FROM peers WHERE peer_id = $1`
-	row, err := tx.QueryContext(ctx, query1, localPeerID)
-	if err != nil {
-		return nil, err
-	}
+	row := tx.QueryRowContext(ctx, query1, localPeerID)
 	if err = row.Scan(&peerID); err != nil {
 		return nil, err
 	}
