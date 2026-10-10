@@ -153,7 +153,6 @@ func (a *AuthService) Refresh(ctx context.Context, req *genauth.RefreshRequest) 
 		return nil, ErrInvalidInput
 	}
 	tokenHash := a.tokenStore.HashToken(req.RefreshToken)
-	log.Printf("Token Hash %v", tokenHash)
 	oldToken, err := a.authRepo.GetRefreshToken(ctx, tokenHash)
 	if err != nil {
 		log.Printf("error getting old token %v", err.Error())
