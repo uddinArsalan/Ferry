@@ -149,24 +149,31 @@ func (a *AuthService) Login(ctx context.Context, req *genauth.LoginRequest) (*ge
 
 func (a *AuthService) Refresh(ctx context.Context, req *genauth.RefreshRequest) (*genauth.RefreshResponse, error) {
 	if req.RefreshToken == "" {
+		log.Printf("no refresh token")
 		return nil, ErrInvalidInput
 	}
-	oldToken, err := a.authRepo.GetRefreshToken(ctx, a.tokenStore.HashToken(req.RefreshToken))
+	tokenHash := a.tokenStore.HashToken(req.RefreshToken)
+	oldToken, err := a.authRepo.GetRefreshToken(ctx, tokenHash)
 	if err != nil {
+		log.Printf("error getting old token %v", err.Error())
 		return nil, ErrInternalServer
 	}
 	if oldToken.RevokedAt != nil {
+		log.Printf("token already revoked")
 		return nil, ErrUnauthenticated
 	}
 	if time.Now().After(oldToken.ExpiresAt) {
+		log.Printf("token expires already")
 		return nil, ErrUnauthenticated
 	}
 	accessToken, err := a.tokenStore.GenerateToken(oldToken.UserID, AccessTokenTTL)
 	if err != nil {
+		log.Printf("error generating new access token %v", err.Error())
 		return nil, ErrInternalServer
 	}
 	newToken, err := a.tokenStore.GenerateRefreshToken()
 	if err != nil {
+		log.Printf("error generating new refresh token %v", err.Error())
 		return nil, ErrInternalServer
 	}
 	now := time.Now()
@@ -174,7 +181,13 @@ func (a *AuthService) Refresh(ctx context.Context, req *genauth.RefreshRequest) 
 	accessTokenExpiresAt := now.Add(AccessTokenTTL)
 	refreshTokenExpiresAt := now.Add(RefreshTokenTTL)
 
-	if err = a.authRepo.CreateAndUpdateRefreshToken(ctx, oldToken.ID, a.tokenStore.HashToken(newToken), oldToken.UserID, refreshTokenExpiresAt); err != nil {
+	if err = a.authRepo.CreateAndUpdateRefreshToken(
+		ctx,
+		oldToken.ID,
+		a.tokenStore.HashToken(newToken),
+		oldToken.UserID,
+		refreshTokenExpiresAt); err != nil {
+		log.Printf("error creating new refresh token %v", err.Error())
 		return nil, ErrInternalServer
 	}
 	return &genauth.RefreshResponse{

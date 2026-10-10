@@ -9,6 +9,8 @@ import (
 
 	"github.com/uddinArsalan/ferry/cli"
 	"github.com/uddinArsalan/ferry/client"
+	"github.com/uddinArsalan/ferry/peers"
+	"github.com/uddinArsalan/ferry/tcp"
 	// "github.com/uddinArsalan/ferry/peers"
 	// "github.com/uddinArsalan/ferry/tcp"
 	// "github.com/uddinArsalan/ferry/types"
@@ -24,12 +26,17 @@ func main() {
 
 	authClient := g.NewAuthClient()
 	groupClient := g.NewGroupClient()
+	peerClient := g.NewPeerClient()
+	pm := peers.NewPeerManager()
+
+	listenerAddr := fmt.Sprintf("127.0.0.1:%d", 9000)
+	server := tcp.NewServer(listenerAddr, pm)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
 	logger := cli.NewLogger()
-	cli := cli.NewCli(ctx, logger.GetLogger(), authClient, groupClient)
+	cli := cli.NewCli(ctx, logger.GetLogger(), authClient, groupClient, peerClient, pm, server)
 	cli.TakeUerParams()
 	// below code will update
 	// pm := peers.NewPeerManager()
