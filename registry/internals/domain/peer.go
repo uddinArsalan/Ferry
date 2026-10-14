@@ -8,3 +8,21 @@ type Peer struct {
 	Port    uint32
 	Address string
 }
+
+type PeerRole int
+
+const (
+	OWNER = iota
+	ADMIN
+	MEMBER
+)
+
+var roleMap = map[PeerRole]string{
+	OWNER:  "OWNER",
+	ADMIN:  "ADMIN",
+	MEMBER: "MEMBER",
+}
+
+func (r PeerRole) String() string {
+	return roleMap[r]
+}

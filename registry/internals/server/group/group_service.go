@@ -7,6 +7,7 @@ import (
 	gengroup "github.com/uddinArsalan/ferry-proto/group"
 	genpeer "github.com/uddinArsalan/ferry-proto/peer"
 	"github.com/uddinArsalan/ferry-registry/interceptor"
+	"github.com/uddinArsalan/ferry-registry/internals/domain"
 	"github.com/uddinArsalan/ferry-registry/internals/repository"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -98,4 +99,17 @@ func (g *GroupServer) GetGroup(ctx context.Context, req *gengroup.GetGroupReques
 		UserId:    group.UserID,
 		CreatedAt: timestamppb.New(group.CreatedAt),
 	}, nil
+}
+
+func (g *GroupServer) CreatePeerMembership(
+	ctx context.Context,
+	req *gengroup.CreatePeerMembershipRequest,
+) (*emptypb.Empty, error) {
+	if err := g.groupRepo.CreatePeerMembership(ctx,
+		req.PeerId,
+		req.GroupId,
+		domain.PeerRole(req.Role)); err != nil {
+		return nil, err
+	}
+	return nil, nil
 }

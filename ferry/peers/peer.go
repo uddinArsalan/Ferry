@@ -1,7 +1,7 @@
 package peers
 
 import (
-	"encoding/json"
+	// "encoding/json"
 	"errors"
 	"net"
 	"sync"
@@ -47,10 +47,11 @@ func (p *PeerManager) GetPeerId() string {
 	return p.currPeerId
 }
 
-func (p *PeerManager) AddPeer(peerId, address string, port uint32) {
+func (p *PeerManager) AddPeer(peerId, name, address string, port uint32) {
 	p.SetPeerId(peerId)
 	peer := types.Peer{
 		ID:        peerId,
+		Name:      name,
 		Address:   address,
 		Port:      port,
 		LastSeen:  time.Now(),
@@ -96,25 +97,32 @@ func (p *PeerManager) GetGroupPeers(grpId string) (map[string]types.PeerLocal, b
 	return group.Peers, true
 }
 
-func (p *PeerManager) AddPeerToGroup(peerId, grpId, localDir string) error {
-	_, ok := p.GetPeerDetail(peerId)
-	if !ok {
-		return ErrPeerNotFound
-	}
+func (p *PeerManager) AddPeerToGroup(peer types.Peer, grpId, localDir string) error {
+	// _, ok := p.GetPeerDetail(peerId)
+	// if !ok {
+	// 	return ErrPeerNotFound
+	// }
 	group, ok := p.GetGroup(grpId)
 	if !ok {
 		return ErrGrpNotFound
 	}
 	p.mu.Lock()
-	group.Peers[peerId] = types.PeerLocal{
-		PeerID:  peerId,
+	group.Peers[peer.ID] = types.PeerLocal{
+		Peer: types.Peer{
+			ID:        peer.ID,
+			Name:      peer.Name,
+			Address:   peer.Address,
+			Port:      peer.Port,
+			LastSeen:  peer.LastSeen,
+			Connected: false,
+		},
 		DirPath: localDir,
 	}
-	_, ok = p.peersGroupMap[peerId]
+	_, ok = p.peersGroupMap[peer.ID]
 	if !ok {
-		p.peersGroupMap[peerId] = map[string]struct{}{}
+		p.peersGroupMap[peer.ID] = map[string]struct{}{}
 	}
-	p.peersGroupMap[peerId][grpId] = struct{}{}
+	p.peersGroupMap[peer.ID][grpId] = struct{}{}
 	p.mu.Unlock()
 	return nil
 }
@@ -142,11 +150,11 @@ func (p *PeerManager) RemovePeerFromAllGroups(peerId string) {
 }
 
 func (p *PeerManager) RemovePeerFromGroup(peerId string, grpId string) error {
-	_, ok := p.GetPeerDetail(peerId)
-	if !ok {
-		return ErrPeerNotFound
-	}
-	_, ok = p.GetGroup(grpId)
+	// _, ok := p.GetPeerDetail(peerId)
+	// if !ok {
+	// 	return ErrPeerNotFound
+	// }
+	_, ok := p.GetGroup(grpId)
 	if !ok {
 		return ErrGrpNotFound
 	}
@@ -157,8 +165,8 @@ func (p *PeerManager) RemovePeerFromGroup(peerId string, grpId string) error {
 	return nil
 }
 
-func (p *PeerManager) GetPeersToConnect() []string {
-	peerIds := make([]string, 0)
+func (p *PeerManager) GetPeersToConnect() []types.PeerLocal {
+	peersArr := make([]types.PeerLocal, 0)
 	currPeerId := p.GetPeerId()
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -166,32 +174,44 @@ func (p *PeerManager) GetPeersToConnect() []string {
 	for grpId := range p.peersGroupMap[currPeerId] {
 		peers, ok := p.GetGroupPeers(grpId)
 		if !ok {
-			return []string{}
+			return nil
 		}
 		for peerId := range peers {
-			peerIds = append(peerIds, peerId)
+			peersArr = append(peersArr, peers[peerId])
 		}
+
 	}
-	return peerIds
+	return peersArr
 }
 
-func (p *PeerManager) SendToAllPeersOfGroup(eventChan chan types.Event) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	currPeerId := p.GetPeerId()
-	for event := range eventChan {
-		// need something else here
-		data, err := json.Marshal(event)
-		if err != nil {
-			continue
-		}
-		for _, peerId := range p.GetPeersToConnect() {
-			p.connMap[currPeerId][peerId].Write(data)
-		}
-	}
-}
+// func (p *PeerManager) SendToAllPeersOfGroup(eventChan chan types.Event) {
+// 	p.mu.Lock()
+// 	defer p.mu.Unlock()
+// 	currPeerId := p.GetPeerId()
+// 	for event := range eventChan {
+// 		// need something else here
+// 		data, err := json.Marshal(event)
+// 		if err != nil {
+// 			continue
+// 		}
+// 		for _, peerId := range p.GetPeersToConnect() {
+// 			p.connMap[currPeerId][peerId].Write(data)
+// 		}
+// 	}
+// }
 
 func (p *PeerManager) GetPeersConn(peerId string) net.Conn {
 	currPeerId := p.GetPeerId()
 	return p.connMap[currPeerId][peerId]
 }
+
+// when a peer init we have to define a peer id local, and it will start listening for conn
+// if a peer gets added to a group , g1 how a curr peer knows there is some new peer and we have
+// to make a new conn with it, so registry helps here , we have to basically for each group get peers
+// and prepare a local map and all
+// second a peer init is waiting for a conn , so other peer has to either dial or this peer to all
+// other peers what we can do the above each group a curr peer is part of get the member per group
+// it will help in generating the new peers curr peer to conn to once conn is established
+// so it has to be done in also in background and may be in init only after server start
+// we store in conn map
+// and then for sync for a grp id for curr peer sync all members by writing data for now say. peer id or some thing

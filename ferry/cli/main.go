@@ -61,7 +61,7 @@ func (c *Cli) TakeUerParams() {
 	case "login":
 		c.login()
 	case "init":
-		c.initPeerAndListening()
+		c.initPeer()
 	case "refresh":
 		c.refresh()
 	case "create":
@@ -160,6 +160,7 @@ func (c *Cli) registerUser(loginReq *auth.LoginRequest) {
 	c.l.Println("Registered successfully")
 }
 
+// sync id represent local grp id
 func (c *Cli) createGroup() {
 	authContext, err := AuthContext()
 	if err != nil {
@@ -169,24 +170,33 @@ func (c *Cli) createGroup() {
 	c.sc.Scan()
 	name := c.sc.Text()
 	c.l.Println("Wait till we create your group...")
-	grpId, err := utils.NewId()
+	syncID, err := utils.NewId()
 	if err != nil {
 		c.l.Fatal("error creating group, try after some time")
 	}
-	c.pm.AddGroup(grpId, name)
-	_, err = c.groupClient.CreateGroup(c.ctx, &group.CreateGroupRequest{GroupId: grpId, Name: name}, authContext)
+	c.pm.AddGroup(syncID, name)
+	_, err = c.groupClient.CreateGroup(c.ctx,
+		&group.CreateGroupRequest{GroupId: syncID, Name: name}, authContext)
 	if err != nil {
 		c.l.Fatalf("error creating group, try after some time %v", err.Error())
 	}
-	c.l.Printf("Group created successfully Group ID = %v\n", grpId)
+	_, err = c.groupClient.CreatePeerMembership(c.ctx, &group.CreatePeerMembershipRequest{
+		GroupId: syncID,
+		PeerId:  c.pm.GetPeerId(),
+		Role:    group.PeerRole_OWNER,
+	})
+	if err != nil {
+		c.l.Fatalf("error creating group, try after some time %v", err.Error())
+	}
+	c.l.Printf("Group created successfully Sync ID = %v\n", syncID)
 }
 
-func (c *Cli) initPeerAndListening() {
-	c.l.Println("Init peer creation and listening")
+func (c *Cli) initPeer() {
+	c.l.Println("Init peer creation")
 	isPeerExists := true
 	peerID, err := keyring.GetPeerId()
 	if err != nil {
-		isPeerExists = true
+		isPeerExists = false
 		peerID, err = utils.NewId()
 		if err != nil {
 			c.l.Fatal("some error occurred try after some time")
@@ -213,10 +223,65 @@ func (c *Cli) initPeerAndListening() {
 			c.l.Println("some error occurred try after some time")
 			return
 		}
-		c.pm.AddPeer(peerID, address, uint32(port))
+		c.pm.AddPeer(peerID, name, address, uint32(port))
 		c.l.Printf("peer created successfully Peer ID = %v", peerID)
 	} else {
+		peer, err := c.peerClient.GetPeer(c.ctx, &peer.GetPeerRequest{
+			PeerId: peerID,
+		})
+		if err != nil {
+			c.l.Fatal("peer init failed")
+		}
+		c.pm.AddPeer(peerID, peer.Name, peer.Address, peer.Port)
 		c.l.Printf("Ferry is already initialized. Peer ID = %v", peerID)
 	}
+}
+
+func (c *Cli) addPeerToGroup() {
+	peerID := flag.String("peer_id", "", "Peer ID")
+	grpID := flag.String("group_id", "", "Group ID")
+	localDir := flag.String("local_dir", "", "Local Dir")
+
+	flag.Parse()
+
+	if *peerID == "" {
+		// we can also define in this way that if peer id not defined
+		// peer is self assigning itself to some group
+		// so then req goes to the owner of group
+		// and it will check and add (for it join req)
+		*peerID = c.pm.GetPeerId()
+		// c.l.Fatal("Error: --peer_id is required")
+	}
+	if *grpID == "" {
+		c.l.Fatal("Error: --group_id is required")
+	}
+	if *localDir == "" {
+		c.l.Fatal("Error: --peer_id is required")
+	}
+	// need to persist (grpid,local_dir) so if client disconnects and connect again
+	peer, err := c.peerClient.GetPeer(c.ctx, &peer.GetPeerRequest{PeerId: *peerID})
+	if err != nil {
+		c.l.Fatal("peer not found")
+	}
+	group, err := c.groupClient.GetGroup(c.ctx, &group.GetGroupRequest{GroupId: *grpID})
+	if err != nil {
+		c.l.Fatal("group not found")
+	}
+	// check if curr peer is owner or authorized to add other peer in this group
+	// then send joining req to other peer (INVITE)
+	// if it accepts then from = curr peer id , to = peer
+
+}
+
+func (c *Cli) start() {
+	c.initPeer()
 	go c.server.Start()
+	go c.getGroups()
+	c.server.ConnectToPeers()
+}
+
+func (c *Cli) getGroups() {
+	for {
+
+	}
 }

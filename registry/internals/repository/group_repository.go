@@ -62,15 +62,10 @@ func (r *GroupRepository) GetGroupByGrpID(ctx context.Context, groupID string) (
 
 func (r *GroupRepository) GetGroupsForPeer(ctx context.Context, localPeerID string) ([]*domain.Group, error) {
 	// peerID - string is local id used
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
 	var peerID int64
 	query1 := `SELECT id FROM peers WHERE peer_id = $1`
-	row := tx.QueryRowContext(ctx, query1, localPeerID)
-	if err = row.Scan(&peerID); err != nil {
+	row := r.db.QueryRowContext(ctx, query1, localPeerID)
+	if err := row.Scan(&peerID); err != nil {
 		return nil, err
 	}
 	query := `SELECT id,name,user_id,group_id,created_at 
@@ -78,7 +73,7 @@ func (r *GroupRepository) GetGroupsForPeer(ctx context.Context, localPeerID stri
 				 JOIN group_peer_membership AS m
 				   ON g.id = m.group_id
 				     WHERE m.peer_id = $1`
-	rows, err := tx.QueryContext(ctx, query, peerID)
+	rows, err := r.db.QueryContext(ctx, query, peerID)
 	if err != nil {
 		return nil, err
 	}
@@ -94,8 +89,30 @@ func (r *GroupRepository) GetGroupsForPeer(ctx context.Context, localPeerID stri
 		}
 		groups = append(groups, &group)
 	}
-	if err = tx.Commit(); err != nil {
-		return nil, err
-	}
 	return groups, nil
+}
+
+func (r *GroupRepository) CreatePeerMembership(
+	ctx context.Context,
+	peerID, syncID string,
+	role domain.PeerRole) error {
+
+	query1 := "SELECT id FROM peers WHERE peer_id = $1"
+	var id int64
+	row := r.db.QueryRowContext(ctx, query1, peerID)
+	if err := row.Scan(&id); err != nil {
+		return err
+	}
+	query2 := "SELECT id FROM groups WHERE group_id = $1"
+	var grpId int64
+	row = r.db.QueryRowContext(ctx, query2, syncID)
+	if err := row.Scan(&grpId); err != nil {
+		return err
+	}
+	query3 := "INSERT INTO group_peer_membership(group_id,peer_id,role) VALUES($1,$2,$3)"
+	_, err := r.db.ExecContext(ctx, query3, grpId, id, role.String())
+	if err != nil {
+		return err
+	}
+	return nil
 }

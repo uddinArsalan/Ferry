@@ -75,16 +75,11 @@ func (s Server) ReadFromConn(conn net.Conn) {
 
 func (s Server) ConnectToPeers() {
 	for {
-		for _, peerId := range s.pm.GetPeersToConnect() {
-			peer, ok := s.pm.GetPeerDetail(peerId)
-			if !ok {
-				continue
-			}
-			_, err := net.Dial("tcp", fmt.Sprintf("%v:%v", peer.Address, peer.Port))
+		for _, peer := range s.pm.GetPeersToConnect() {
+			_, err := net.Dial("tcp", fmt.Sprintf("%v:%v", peer.Peer.Address, peer.Peer.Port))
 			if err != nil {
 				continue
 			}
 		}
 	}
-
 }

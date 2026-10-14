@@ -6,6 +6,7 @@ import (
 
 type Peer struct {
 	ID        string // this id represent the local peer id we keep not db
+	Name      string
 	Address   string
 	Port      uint32
 	LastSeen  time.Time
@@ -14,7 +15,7 @@ type Peer struct {
 
 // PeerLocal represents a peer's config *within* one sync group.
 type PeerLocal struct {
-	PeerID  string
+	Peer    Peer
 	DirPath string // local root dir for this group, on that peer's machine
 }
 
