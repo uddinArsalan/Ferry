@@ -4,7 +4,7 @@ go 1.26.3
 
 require (
 	github.com/fsnotify/fsnotify v1.10.1
-	github.com/uddinArsalan/ferry-proto v0.0.0-20261014202829-4c8d2c5745e8
+	github.com/uddinArsalan/ferry-proto v0.0.0-20261017203644-0f6a9327cff5
 	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/term v0.45.0

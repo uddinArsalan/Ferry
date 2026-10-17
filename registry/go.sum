@@ -36,6 +36,10 @@ github.com/uddinArsalan/ferry-proto v0.0.0-20261008200721-407afb4f9f25 h1:CF8dHG
 github.com/uddinArsalan/ferry-proto v0.0.0-20261008200721-407afb4f9f25/go.mod h1:8kaZTLGB5jS4mxcgP/YU7U7sOo8u1a4KAEKOyMnPgVQ=
 github.com/uddinArsalan/ferry-proto v0.0.0-20261014202829-4c8d2c5745e8 h1:58F5LIBndsYJkBKi8g6ZRt9iTCyl66dz5yOSi3WAzWc=
 github.com/uddinArsalan/ferry-proto v0.0.0-20261014202829-4c8d2c5745e8/go.mod h1:8kaZTLGB5jS4mxcgP/YU7U7sOo8u1a4KAEKOyMnPgVQ=
+github.com/uddinArsalan/ferry-proto v0.0.0-20261015141332-a85c3ce31a23 h1:74/ZyKR6motvMLkSo06RXTmA21hn7+RWxn3pHOyUAYA=
+github.com/uddinArsalan/ferry-proto v0.0.0-20261015141332-a85c3ce31a23/go.mod h1:8kaZTLGB5jS4mxcgP/YU7U7sOo8u1a4KAEKOyMnPgVQ=
+github.com/uddinArsalan/ferry-proto v0.0.0-20261017203644-0f6a9327cff5 h1:sYZb/sSsWV4mjRaiRChosGD0FMdlhFj5d8JGUQj2mDY=
+github.com/uddinArsalan/ferry-proto v0.0.0-20261017203644-0f6a9327cff5/go.mod h1:8kaZTLGB5jS4mxcgP/YU7U7sOo8u1a4KAEKOyMnPgVQ=
 golang.org/x/crypto v0.57.0 h1:3ZVCjf8Ggz7zneR/EHRVx68Ctf+2pmIMP2UFhh9cC6M=
 golang.org/x/crypto v0.57.0/go.mod h1:Fdz0i5U6CoizGwLda9DttjSk6qlZo25zYNtR+ycvuZA=
 golang.org/x/net v0.59.0 h1:5zfYln+w5XCxwrnMMJPufRgNoXEaGxl0wo5GqPXyues=

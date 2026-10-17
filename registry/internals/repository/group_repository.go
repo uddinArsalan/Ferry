@@ -92,27 +92,58 @@ func (r *GroupRepository) GetGroupsForPeer(ctx context.Context, localPeerID stri
 	return groups, nil
 }
 
-func (r *GroupRepository) CreatePeerMembership(
-	ctx context.Context,
-	peerID, syncID string,
-	role domain.PeerRole) error {
+type DBId struct {
+	PeerID  int64
+	GroupID int64
+}
 
+func (r *GroupRepository) getDBPeerGroupID(ctx context.Context, peerID, syncID string) (DBId, error) {
 	query1 := "SELECT id FROM peers WHERE peer_id = $1"
 	var id int64
 	row := r.db.QueryRowContext(ctx, query1, peerID)
 	if err := row.Scan(&id); err != nil {
-		return err
+		return DBId{}, err
 	}
 	query2 := "SELECT id FROM groups WHERE group_id = $1"
-	var grpId int64
+	var groupID int64
 	row = r.db.QueryRowContext(ctx, query2, syncID)
-	if err := row.Scan(&grpId); err != nil {
+	if err := row.Scan(&groupID); err != nil {
+		return DBId{}, err
+	}
+	return DBId{
+		PeerID:  id,
+		GroupID: groupID,
+	}, nil
+}
+
+func (r *GroupRepository) CreateGroupPeerMembership(
+	ctx context.Context,
+	peerID, syncID string,
+	role domain.PeerRole) error {
+	dbIDs, err := r.getDBPeerGroupID(ctx, peerID, syncID)
+	if err != nil {
 		return err
 	}
-	query3 := "INSERT INTO group_peer_membership(group_id,peer_id,role) VALUES($1,$2,$3)"
-	_, err := r.db.ExecContext(ctx, query3, grpId, id, role.String())
+	query := "INSERT INTO group_peer_membership(group_id,peer_id,role) VALUES($1,$2,$3)"
+	_, err = r.db.ExecContext(ctx, query, dbIDs.GroupID, dbIDs.PeerID, role.String())
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (r *GroupRepository) GetGroupPeerMembership(
+	ctx context.Context,
+	peerID, syncID string) (domain.PeerGroupMembership, error) {
+	dbIDs, err := r.getDBPeerGroupID(ctx, peerID, syncID)
+	if err != nil {
+		return domain.PeerGroupMembership{}, err
+	}
+	var mem domain.PeerGroupMembership
+	query := "SELECT group_id,peer_id,role,joined_at FROM group_peer_membership WHERE group_id = $1 AND peer_id = $2"
+	row := r.db.QueryRowContext(ctx, query, dbIDs.GroupID, dbIDs.PeerID)
+	if err := row.Scan(&mem.GroupID, &mem.PeerID, &mem.Role, &mem.JoinedAt); err != nil {
+		return domain.PeerGroupMembership{}, err
+	}
+	return mem, nil
 }

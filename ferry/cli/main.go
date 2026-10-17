@@ -180,7 +180,7 @@ func (c *Cli) createGroup() {
 	if err != nil {
 		c.l.Fatalf("error creating group, try after some time %v", err.Error())
 	}
-	_, err = c.groupClient.CreatePeerMembership(c.ctx, &group.CreatePeerMembershipRequest{
+	_, err = c.groupClient.CreateGroupPeerMembership(c.ctx, &group.CreateGroupPeerMembershipRequest{
 		GroupId: syncID,
 		PeerId:  c.pm.GetPeerId(),
 		Role:    group.PeerRole_OWNER,
@@ -237,40 +237,62 @@ func (c *Cli) initPeer() {
 	}
 }
 
-func (c *Cli) addPeerToGroup() {
+func (c *Cli) invitePeerToGroup() {
 	peerID := flag.String("peer_id", "", "Peer ID")
-	grpID := flag.String("group_id", "", "Group ID")
+	groupID := flag.String("group_id", "", "Group ID")
 	localDir := flag.String("local_dir", "", "Local Dir")
 
 	flag.Parse()
 
-	if *peerID == "" {
-		// we can also define in this way that if peer id not defined
-		// peer is self assigning itself to some group
-		// so then req goes to the owner of group
-		// and it will check and add (for it join req)
-		*peerID = c.pm.GetPeerId()
-		// c.l.Fatal("Error: --peer_id is required")
+	currPeerId := c.pm.GetPeerId()
+	if currPeerId == "" {
+		c.l.Fatalf("unauthenticated or some problem with config")
 	}
-	if *grpID == "" {
+
+	if *peerID == "" {
+		c.l.Fatal("Error: --peer_id is required")
+	}
+	if *groupID == "" {
 		c.l.Fatal("Error: --group_id is required")
 	}
 	if *localDir == "" {
 		c.l.Fatal("Error: --peer_id is required")
 	}
+
 	// need to persist (grpid,local_dir) so if client disconnects and connect again
-	peer, err := c.peerClient.GetPeer(c.ctx, &peer.GetPeerRequest{PeerId: *peerID})
+
+	_, err := c.peerClient.GetPeer(c.ctx, &peer.GetPeerRequest{PeerId: *peerID})
 	if err != nil {
 		c.l.Fatal("peer not found")
 	}
-	group, err := c.groupClient.GetGroup(c.ctx, &group.GetGroupRequest{GroupId: *grpID})
+	_, err = c.groupClient.GetGroup(c.ctx, &group.GetGroupRequest{GroupId: *groupID})
 	if err != nil {
 		c.l.Fatal("group not found")
 	}
 	// check if curr peer is owner or authorized to add other peer in this group
 	// then send joining req to other peer (INVITE)
-	// if it accepts then from = curr peer id , to = peer
 
+	mem, err := c.groupClient.GetGroupPeerMembership(c.ctx, &group.GetGroupPeerMembershipRequest{
+		GroupId: *groupID,
+		PeerId:  currPeerId,
+	})
+	if err != nil {
+		c.l.Fatal("some error occurred try after some time")
+	}
+	if mem.Role == group.PeerRole_MEMBER {
+		c.l.Fatal("the current peer is not authorized to perform this.")
+	}
+	_, err = c.groupClient.CreateJoinRequest(c.ctx, &group.CreateJoin{
+		GroupId:         *groupID,
+		Type:            group.JoinType_INVITE,
+		SenderPeerId:    currPeerId,
+		RecipientPeerId: *peerID,
+		Status:          group.INVITE_STATUS_PENDING,
+	})
+	if err != nil {
+		c.l.Fatal("error creating group membership")
+	}
+	c.l.Println("Peer Invited successfully")
 }
 
 func (c *Cli) start() {

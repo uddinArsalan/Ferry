@@ -15,7 +15,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-var ErrGroupNotFound = status.Error(codes.NotFound, "Group not found")
+// var ErrGroupNotFound = status.Error(codes.NotFound, "Group not found")
 
 type GroupServer struct {
 	groupRepo *repository.GroupRepository
@@ -101,15 +101,33 @@ func (g *GroupServer) GetGroup(ctx context.Context, req *gengroup.GetGroupReques
 	}, nil
 }
 
-func (g *GroupServer) CreatePeerMembership(
+func (g *GroupServer) CreateGroupPeerMembership(
 	ctx context.Context,
-	req *gengroup.CreatePeerMembershipRequest,
+	req *gengroup.CreateGroupPeerMembershipRequest,
 ) (*emptypb.Empty, error) {
-	if err := g.groupRepo.CreatePeerMembership(ctx,
+	if err := g.groupRepo.CreateGroupPeerMembership(ctx,
 		req.PeerId,
 		req.GroupId,
 		domain.PeerRole(req.Role)); err != nil {
 		return nil, err
 	}
 	return nil, nil
+}
+
+func (g *GroupServer) GetGroupPeerMembership(
+	ctx context.Context,
+	req *gengroup.GetGroupPeerMembershipRequest,
+) (*gengroup.GetGroupPeerMembershipResponse, error) {
+	mem, err := g.groupRepo.GetGroupPeerMembership(ctx,
+		req.PeerId,
+		req.GroupId)
+	if err != nil {
+		return nil, err
+	}
+	return &gengroup.GetGroupPeerMembershipResponse{
+		PeerId:   mem.PeerID,
+		GroupId:  mem.GroupID,
+		Role:     gengroup.PeerRole(mem.Role),
+		JoinedAt: mem.JoinedAt,
+	}, nil
 }

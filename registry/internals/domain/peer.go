@@ -1,5 +1,9 @@
 package domain
 
+import (
+	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
 type Peer struct {
 	ID      int64
 	PeerID  string
@@ -25,4 +29,11 @@ var roleMap = map[PeerRole]string{
 
 func (r PeerRole) String() string {
 	return roleMap[r]
+}
+
+type PeerGroupMembership struct {
+	GroupID  int64
+	PeerID   int64
+	Role     PeerRole
+	JoinedAt *timestamppb.Timestamp
 }
