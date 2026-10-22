@@ -137,6 +137,22 @@ func (p *PeerManager) AddGroup(grpId, name string) {
 	p.mu.Unlock()
 }
 
+func (p *PeerManager) UpdateGroupPeerConfig(groupID string, localDir string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	syncGroup, ok := p.groups[groupID]
+	if !ok {
+		return ErrGrpNotFound
+	}
+	peer, ok := syncGroup.Peers[p.currPeerId]
+	if !ok {
+		return ErrPeerNotFound
+	}
+	peer.DirPath = localDir
+	syncGroup.Peers[p.currPeerId] = peer
+	return nil
+}
+
 func (p *PeerManager) RemovePeerFromAllGroups(peerId string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

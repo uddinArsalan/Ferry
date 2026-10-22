@@ -16,7 +16,7 @@ type Peer struct {
 type PeerRole int
 
 const (
-	OWNER = iota
+	OWNER PeerRole = iota
 	ADMIN
 	MEMBER
 )

@@ -131,3 +131,219 @@ func (g *GroupServer) GetGroupPeerMembership(
 		JoinedAt: mem.JoinedAt,
 	}, nil
 }
+
+// create join request (invite/join) for a particular group from
+// sender peer to a recipient peer
+func (g *GroupServer) CreateJoinRequest(
+	ctx context.Context,
+	req *gengroup.CreateJoin,
+) (*emptypb.Empty, error) {
+	err := g.groupRepo.CreateJoinRequest(ctx,
+		req.GroupId,
+		req.SenderPeerId,
+		req.RecipientPeerId,
+		domain.JoinType(req.Type),
+	)
+	return nil, err
+}
+
+// get join/membership request (invite/join)
+func (g *GroupServer) GetJoinRequest(
+	ctx context.Context,
+	req *gengroup.GetJoinReq,
+) (*gengroup.GetJoinRequestResponse, error) {
+	j, err := g.groupRepo.GetJoinRequest(ctx, req.RequestId)
+	if err != nil {
+		return nil, err
+	}
+	return &gengroup.GetJoinRequestResponse{
+		RequestId:         j.RequestID,
+		GroupId:           j.GroupID,
+		GroupName:         j.GroupName,
+		Type:              gengroup.JoinType(j.JoinType),
+		SenderPeerId:      j.SenderPeerID,
+		SenderPeerName:    j.SenderPeerName,
+		RecipientPeerId:   j.RecipientPeerID,
+		RecipientPeerName: j.RecipientPeerName,
+		Status:            gengroup.INVITE_STATUS(j.JoinStatus),
+	}, nil
+}
+
+// update status
+func (g *GroupServer) UpdateJoinRequestStatus(
+	ctx context.Context,
+	req *gengroup.UpdateJoin,
+) (*emptypb.Empty, error) {
+	if err := g.groupRepo.UpdateJoinRequestStatus(
+		ctx,
+		req.RequestId,
+		domain.JoinStatus(req.Status),
+	); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+// get all pending invites for a peer (accross all groups from each group owner)
+func (g *GroupServer) GetAllPendingInvites(
+	ctx context.Context,
+	req *gengroup.GetAllPendingRequest,
+) (*gengroup.PendingInviteResponse, error) {
+	pendingInvites, err := g.groupRepo.GetAllPendingInvites(ctx, req.PeerId)
+	if err != nil {
+		return nil, err
+	}
+	var pendingInviteRequests []*gengroup.GetInviteRequestResponse
+	for _, request := range pendingInvites {
+		pendingInviteRequests = append(pendingInviteRequests,
+			&gengroup.GetInviteRequestResponse{
+				RequestId:         request.RequestID,
+				GroupId:           request.GroupID,
+				GroupName:         request.GroupName,
+				Type:              gengroup.JoinType(request.JoinType),
+				SenderPeerId:      request.SenderPeerID,
+				SenderPeerName:    request.SenderPeerName,
+				RecipientPeerId:   request.RecipientPeerID,
+				RecipientPeerName: request.RecipientPeerName,
+				Status:            gengroup.INVITE_STATUS(request.JoinStatus),
+			})
+	}
+	return &gengroup.PendingInviteResponse{
+		PendingInviteRequests: pendingInviteRequests,
+	}, nil
+}
+
+func (g *GroupServer) GetAllPendingJoinRequestsBySender(
+	ctx context.Context,
+	req *gengroup.GetAllPendingRequest,
+) (*gengroup.PendingJoinResponse, error) {
+	pendingJoins, err := g.groupRepo.GetAllPendingJoinRequestsBySender(ctx, req.PeerId)
+	if err != nil {
+		return nil, err
+	}
+	var pendingJoinRequests []*gengroup.GetJoinRequestResponse
+	for _, request := range pendingJoins {
+		pendingJoinRequests = append(pendingJoinRequests,
+			&gengroup.GetJoinRequestResponse{
+				RequestId:         request.RequestID,
+				GroupId:           request.GroupID,
+				GroupName:         request.GroupName,
+				Type:              gengroup.JoinType(request.JoinType),
+				SenderPeerId:      request.SenderPeerID,
+				SenderPeerName:    request.SenderPeerName,
+				RecipientPeerId:   request.RecipientPeerID,
+				RecipientPeerName: request.RecipientPeerName,
+				Status:            gengroup.INVITE_STATUS(request.JoinStatus),
+			})
+	}
+	return &gengroup.PendingJoinResponse{
+		PendingJoinRequests: pendingJoinRequests,
+	}, nil
+}
+
+func (g *GroupServer) GetAllPendingJoinRequestsForOwner(
+	ctx context.Context,
+	req *gengroup.GetAllPendingRequest,
+) (*gengroup.PendingJoinResponse, error) {
+	pendingJoins, err := g.groupRepo.GetAllPendingJoinRequestsForOwner(ctx, req.PeerId)
+	if err != nil {
+		return nil, err
+	}
+	var pendingJoinRequests []*gengroup.GetJoinRequestResponse
+	for _, request := range pendingJoins {
+		pendingJoinRequests = append(pendingJoinRequests,
+			&gengroup.GetJoinRequestResponse{
+				RequestId:         request.RequestID,
+				GroupId:           request.GroupID,
+				GroupName:         request.GroupName,
+				Type:              gengroup.JoinType(request.JoinType),
+				SenderPeerId:      request.SenderPeerID,
+				SenderPeerName:    request.SenderPeerName,
+				RecipientPeerId:   request.RecipientPeerID,
+				RecipientPeerName: request.RecipientPeerName,
+				Status:            gengroup.INVITE_STATUS(request.JoinStatus),
+			})
+	}
+	return &gengroup.PendingJoinResponse{
+		PendingJoinRequests: pendingJoinRequests,
+	}, nil
+}
+
+func (g *GroupServer) GetGroupPendingInvite(
+	ctx context.Context,
+	req *gengroup.GetGroupPendingRequest,
+) (*gengroup.GetInviteRequestResponse, error) {
+	pendingGroupRequest, err := g.groupRepo.GetGroupPendingInvite(
+		ctx,
+		req.PeerId,
+		req.GroupId)
+	if err != nil {
+		return nil, err
+	}
+	return &gengroup.GetInviteRequestResponse{
+		RequestId:         pendingGroupRequest.RequestID,
+		GroupId:           pendingGroupRequest.GroupID,
+		GroupName:         pendingGroupRequest.GroupName,
+		SenderPeerId:      pendingGroupRequest.SenderPeerID,
+		SenderPeerName:    pendingGroupRequest.SenderPeerName,
+		RecipientPeerId:   pendingGroupRequest.RecipientPeerID,
+		RecipientPeerName: pendingGroupRequest.RecipientPeerName,
+		Type:              gengroup.JoinType(pendingGroupRequest.JoinType),
+		Status:            gengroup.INVITE_STATUS(pendingGroupRequest.JoinStatus),
+	}, nil
+}
+
+func (g *GroupServer) GetGroupPendingJoinRequestsBySender(
+	ctx context.Context,
+	req *gengroup.GetGroupPendingRequest,
+) (*gengroup.GetJoinRequestResponse, error) {
+	pendingGroupRequest, err := g.groupRepo.GetGroupPendingJoinRequestsBySender(
+		ctx,
+		req.PeerId,
+		req.GroupId)
+	if err != nil {
+		return nil, err
+	}
+	return &gengroup.GetJoinRequestResponse{
+		RequestId:         pendingGroupRequest.RequestID,
+		GroupId:           pendingGroupRequest.GroupID,
+		GroupName:         pendingGroupRequest.GroupName,
+		SenderPeerId:      pendingGroupRequest.SenderPeerID,
+		SenderPeerName:    pendingGroupRequest.SenderPeerName,
+		RecipientPeerId:   pendingGroupRequest.RecipientPeerID,
+		RecipientPeerName: pendingGroupRequest.RecipientPeerName,
+		Type:              gengroup.JoinType(pendingGroupRequest.JoinType),
+		Status:            gengroup.INVITE_STATUS(pendingGroupRequest.JoinStatus),
+	}, nil
+}
+
+func (g *GroupServer) GetGroupPendingJoinRequestsForOwner(
+	ctx context.Context,
+	req *gengroup.GetGroupPendingRequest,
+) (*gengroup.PendingJoinResponse, error) {
+	pendingJoins, err := g.groupRepo.GetGroupPendingJoinRequestsForOwner(
+		ctx,
+		req.PeerId,
+		req.GroupId)
+	if err != nil {
+		return nil, err
+	}
+	var pendingJoinRequests []*gengroup.GetJoinRequestResponse
+	for _, request := range pendingJoins {
+		pendingJoinRequests = append(pendingJoinRequests,
+			&gengroup.GetJoinRequestResponse{
+				RequestId:         request.RequestID,
+				GroupId:           request.GroupID,
+				GroupName:         request.GroupName,
+				Type:              gengroup.JoinType(request.JoinType),
+				SenderPeerId:      request.SenderPeerID,
+				SenderPeerName:    request.SenderPeerName,
+				RecipientPeerId:   request.RecipientPeerID,
+				RecipientPeerName: request.RecipientPeerName,
+				Status:            gengroup.INVITE_STATUS(request.JoinStatus),
+			})
+	}
+	return &gengroup.PendingJoinResponse{
+		PendingJoinRequests: pendingJoinRequests,
+	}, nil
+}
