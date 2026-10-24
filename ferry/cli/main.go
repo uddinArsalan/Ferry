@@ -69,10 +69,21 @@ func (c *Cli) TakeUerParams() {
 		c.refresh()
 	case "invite":
 		switch flag.Arg(1) {
+		case "peer":
+			c.invitePeerToGroup()
 		case "accept":
 			c.acceptInvite()
 		case "reject":
 			c.rejectInvite()
+		}
+	case "join":
+		switch flag.Arg(1) {
+		case "accept":
+			c.acceptJoin()
+		case "reject":
+			c.rejectJoin()
+		default:
+			c.sendJoinReqToGroup()
 		}
 	case "get":
 		switch flag.Arg(1) {
@@ -80,6 +91,13 @@ func (c *Cli) TakeUerParams() {
 			switch flag.Arg(2) {
 			case "invites":
 				c.getAllPendingInvites()
+			}
+		case "join-requests":
+			switch flag.Arg(3) {
+			case "sent":
+				c.getAllJoinReqByPeer()
+			case "received":
+				c.getAllJoinReqForPeer()
 			}
 		}
 	case "create":
@@ -206,7 +224,7 @@ func (c *Cli) createGroup() {
 	if err != nil {
 		c.l.Fatalf("error creating group, try after some time %v", err.Error())
 	}
-	c.l.Printf("Group created successfully Sync ID = %v\n", syncID)
+	c.l.Printf("Group created successfully Group ID = %v\n", syncID)
 }
 
 func (c *Cli) initPeer() {
@@ -256,36 +274,39 @@ func (c *Cli) initPeer() {
 }
 
 func (c *Cli) invitePeerToGroup() {
-	peerID := flag.String("peer_id", "", "Peer ID")
-	groupID := flag.String("group_id", "", "Group ID")
-
-	flag.Parse()
+	peerID, groupID := flag.Arg(2), flag.Arg(3)
 
 	currPeerId := c.pm.GetPeerId()
 	if currPeerId == "" {
 		c.l.Fatalf("unauthenticated or some problem with config")
 	}
 
-	if *peerID == "" {
-		c.l.Fatal("Error: --peer_id is required")
+	if peerID == "" {
+		c.l.Fatal("Error: peer ID is required (usage: invite peer <peer_id> <group_id>)")
 	}
-	if *groupID == "" {
-		c.l.Fatal("Error: --group_id is required")
+	if groupID == "" {
+		c.l.Fatal("Error: group ID is required (usage: invite peer <peer_id> <group_id>)")
 	}
 
-	_, err := c.peerClient.GetPeer(c.ctx, &peer.GetPeerRequest{PeerId: *peerID})
+	_, err := c.peerClient.GetPeer(c.ctx, &peer.GetPeerRequest{PeerId: peerID})
 	if err != nil {
-		c.l.Fatal("peer not found")
+		if status.Code(err) == codes.NotFound {
+			c.l.Fatal("peer not found")
+		}
+		c.l.Fatal("invalid peer id / error getting peer detail")
 	}
-	_, err = c.groupClient.GetGroup(c.ctx, &group.GetGroupRequest{GroupId: *groupID})
+	_, err = c.groupClient.GetGroup(c.ctx, &group.GetGroupRequest{GroupId: groupID})
 	if err != nil {
-		c.l.Fatal("group not found")
+		if status.Code(err) == codes.NotFound {
+			c.l.Fatal("group not found")
+		}
+		c.l.Fatal("error getting group detail")
 	}
 	// we need to check if the peer we want to invite is already a part
 	// of the provided group or not
 	mem, err := c.groupClient.GetGroupPeerMembership(c.ctx, &group.GetGroupPeerMembershipRequest{
-		GroupId: *groupID,
-		PeerId:  *peerID,
+		GroupId: groupID,
+		PeerId:  peerID,
 	})
 
 	if err != nil {
@@ -297,11 +318,10 @@ func (c *Cli) invitePeerToGroup() {
 	} else {
 		c.l.Fatal("peer is already a member of group")
 	}
-
 	// check if curr peer is owner or authorized to add other peer in this group
 	// then send joining req to other peer (INVITE)
 	mem, err = c.groupClient.GetGroupPeerMembership(c.ctx, &group.GetGroupPeerMembershipRequest{
-		GroupId: *groupID,
+		GroupId: groupID,
 		PeerId:  currPeerId,
 	})
 	if err != nil {
@@ -311,10 +331,10 @@ func (c *Cli) invitePeerToGroup() {
 		c.l.Fatal("the current peer is not authorized to perform this.")
 	}
 	_, err = c.groupClient.CreateJoinRequest(c.ctx, &group.CreateJoin{
-		GroupId:         *groupID,
+		GroupId:         groupID,
 		Type:            group.JoinType_INVITE,
 		SenderPeerId:    currPeerId,
-		RecipientPeerId: *peerID,
+		RecipientPeerId: peerID,
 		Status:          group.INVITE_STATUS_PENDING,
 	})
 	if err != nil {
@@ -323,6 +343,7 @@ func (c *Cli) invitePeerToGroup() {
 	c.l.Println("Peer Invited successfully")
 }
 
+// will give all pending invites for the current peer (by other peer group owners)
 func (c *Cli) getAllPendingInvites() {
 	pendingInvites, err := c.groupClient.GetAllPendingInvites(c.ctx, &group.GetAllPendingRequest{
 		PeerId: c.pm.GetPeerId(),
@@ -343,22 +364,23 @@ func (c *Cli) getAllPendingInvites() {
 	}
 }
 
+// since we are showing only curr peer pending invites
+// this peer is authorize to make decisions of each req
+// either accept or reject
 func (c *Cli) rejectInvite() {
-	requestID := flag.Int64("request_id", -1, "Request ID")
-	flag.Parse()
+	requestID := c.requestIDArg(2, "invite reject <request_id>")
 
-	if *requestID == -1 {
-		c.l.Fatal("Error: --request_id is required")
-	}
-
-	_, err := c.groupClient.GetJoinRequest(c.ctx, &group.GetJoinReq{
-		RequestId: *requestID,
+	req, err := c.groupClient.GetJoinRequest(c.ctx, &group.GetJoinReq{
+		RequestId: requestID,
 	})
 	if err != nil {
 		c.l.Fatal("invalid req id or err in getting the request")
 	}
+	if req.Type == group.JoinType_JOIN_REQUEST {
+		c.l.Fatal("Error: invalid request id")
+	}
 	_, err = c.groupClient.UpdateJoinRequestStatus(c.ctx, &group.UpdateJoin{
-		RequestId: *requestID,
+		RequestId: requestID,
 		Status:    group.INVITE_STATUS_REJECTED,
 	})
 	if err != nil {
@@ -367,21 +389,16 @@ func (c *Cli) rejectInvite() {
 }
 
 func (c *Cli) acceptInvite() {
-	requestID := flag.Int64("request_id", -1, "Request ID")
-	flag.Parse()
-
-	if *requestID == -1 {
-		c.l.Fatal("Error: --request_id is required")
-	}
+	requestID := c.requestIDArg(2, "invite accept <request_id>")
 
 	req, err := c.groupClient.GetJoinRequest(c.ctx, &group.GetJoinReq{
-		RequestId: *requestID,
+		RequestId: requestID,
 	})
 	if err != nil {
 		c.l.Fatal("invalid req id or err in getting the request")
 	}
 	_, err = c.groupClient.UpdateJoinRequestStatus(c.ctx, &group.UpdateJoin{
-		RequestId: *requestID,
+		RequestId: requestID,
 		Status:    group.INVITE_STATUS_ACCEPTED,
 	})
 	if err != nil {
@@ -408,6 +425,211 @@ func (c *Cli) acceptInvite() {
 	if err != nil {
 		c.l.Fatal("error updating local config")
 	}
+}
+
+// will give all pending join req send by a curr peer to peer group owners
+// across other groups to join in groups, only those peer owners can accept or reject
+func (c *Cli) getAllJoinReqByPeer() {
+	currPeerID := c.pm.GetPeerId()
+	// need to either do ferry start or run (need to decide)
+	if currPeerID == "" {
+		c.l.Fatal("Error: invalid configuration")
+	}
+	pendingJoinReq, err := c.groupClient.GetAllPendingJoinRequestsBySender(c.ctx, &group.GetAllPendingRequest{
+		PeerId: currPeerID,
+	})
+	if err != nil {
+		c.l.Fatal("error getting pending join requests send by this peer")
+	}
+	for _, join := range pendingJoinReq.PendingJoinRequests {
+		c.l.Printf(
+			`Invite Req : %v\n
+			Group ID : %v\n
+			Group Name : %v\n
+			Sender Peer Name : %v\n
+			Recipient Peer Name : %v\n\n
+			`,
+			join.RequestId,
+			join.GroupId,
+			join.GroupName,
+			join.SenderPeerName,
+			join.RecipientPeerName,
+		)
+	}
+}
+
+// will give all pending join req send by a peers for this
+// curr peer across all groups to join in a group
+func (c *Cli) getAllJoinReqForPeer() {
+	currPeerID := c.pm.GetPeerId()
+	// need to either do ferry start or run (need to decide)
+	if currPeerID == "" {
+		c.l.Fatal("Error: invalid configuration")
+	}
+	pendingJoinReq, err := c.groupClient.GetAllPendingJoinRequestsForOwner(c.ctx, &group.GetAllPendingRequest{
+		PeerId: currPeerID,
+	})
+	if err != nil {
+		c.l.Fatal("error getting pending join requests for this peer")
+	}
+	for _, join := range pendingJoinReq.PendingJoinRequests {
+		c.l.Printf(
+			`Invite Req : %v\n
+			 Group ID : %v\n
+			 Group Name : %v\n
+			 Sender Peer Name : %v\n
+			 Recipient Peer Name : %v\n\n
+			`,
+			join.RequestId,
+			join.GroupId,
+			join.GroupName,
+			join.SenderPeerName,
+			join.RecipientPeerName,
+		)
+	}
+}
+
+func (c *Cli) acceptJoin() {
+	requestID := c.requestIDArg(2, "join accept <request_id>")
+
+	req, err := c.groupClient.GetJoinRequest(c.ctx, &group.GetJoinReq{
+		RequestId: requestID,
+	})
+
+	if err != nil {
+		c.l.Fatal("invalid request id or err in getting the request")
+	}
+
+	if req.Type == group.JoinType_INVITE {
+		c.l.Fatal("Error: invalid request id")
+	}
+
+	// need to decide whether curr peer is authorized to perform this,
+	// for this request id
+	_, err = c.groupClient.UpdateJoinRequestStatus(c.ctx, &group.UpdateJoin{
+		RequestId: requestID,
+		Status:    group.INVITE_STATUS_ACCEPTED,
+	})
+
+	if err != nil {
+		c.l.Fatalf("error accepting join with request id %v", requestID)
+	}
+
+	c.l.Println("Enter your Local dir that you want to sync in this group:")
+	c.sc.Scan()
+	localDir := c.sc.Text()
+
+	if localDir == "" {
+		c.l.Fatal("Error: local_dir is required")
+	}
+
+	// need to persist (grpid,local_dir) so if client disconnects and connect again
+	err = config.SaveLocalDir(config.LocalDirConfig{
+		GroupID:  req.GroupId,
+		LocalDir: localDir,
+	})
+	if err != nil {
+		c.l.Fatal("error adding config")
+	}
+	err = c.pm.UpdateGroupPeerConfig(req.GroupId, localDir)
+	if err != nil {
+		c.l.Fatal("error updating local config")
+	}
+}
+
+func (c *Cli) rejectJoin() {
+	requestID := c.requestIDArg(2, "join reject <request_id>")
+
+	req, err := c.groupClient.GetJoinRequest(c.ctx, &group.GetJoinReq{
+		RequestId: requestID,
+	})
+	if err != nil {
+		c.l.Fatal("invalid req id or err in getting the request")
+	}
+	if req.Type == group.JoinType_INVITE {
+		c.l.Fatal("Error: invalid request id")
+	}
+	_, err = c.groupClient.UpdateJoinRequestStatus(c.ctx, &group.UpdateJoin{
+		RequestId: requestID,
+		Status:    group.INVITE_STATUS_REJECTED,
+	})
+	if err != nil {
+		c.l.Fatalf("error rejecting invite with request id %v", requestID)
+	}
+}
+
+func (c *Cli) sendJoinReqToGroup() {
+	groupID := flag.Arg(1)
+
+	if groupID == "" {
+		c.l.Fatal("Error: group ID is required (usage: join <group_id>)")
+	}
+
+	currPeerID := c.pm.GetPeerId()
+
+	// need to either do ferry start or run (need to decide)
+	if currPeerID == "" {
+		c.l.Fatal("Error: invalid configuration")
+	}
+
+	_, err := c.groupClient.GetGroup(c.ctx, &group.GetGroupRequest{GroupId: groupID})
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			c.l.Fatal("group not found")
+		}
+		c.l.Fatal("error getting group detail")
+	}
+
+	// we need to check if curr peer is already a part
+	// of the provided group or not
+	_, err = c.groupClient.GetGroupPeerMembership(c.ctx, &group.GetGroupPeerMembershipRequest{
+		GroupId: groupID,
+		PeerId:  currPeerID,
+	})
+
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+		} else {
+			c.l.Fatal("error , contact the ferry owner")
+		}
+	} else {
+		c.l.Fatal("peer is already a member of group")
+	}
+
+	// this join req will go for group owner peer (so recipient is group owner)
+	// and sender is curr peer that wants to join in group
+
+	peerID, err := c.groupClient.GetGroupOwnerPeerID(c.ctx, &group.GetGroupRequest{
+		GroupId: groupID,
+	})
+
+	if err != nil {
+		c.l.Fatal("error contacting group owner")
+	}
+
+	_, err = c.groupClient.CreateJoinRequest(c.ctx, &group.CreateJoin{
+		GroupId:         groupID,
+		Type:            group.JoinType_INVITE,
+		SenderPeerId:    currPeerID,
+		RecipientPeerId: peerID.PeerId,
+		Status:          group.INVITE_STATUS_PENDING,
+	})
+	if err != nil {
+		c.l.Fatal("error creating group membership")
+	}
+	c.l.Println("join request sent successfully")
+}
+
+func (c *Cli) requestIDArg(index int, usage string) int64 {
+	value := flag.Arg(index)
+	if value == "" {
+		c.l.Fatalf("request ID is required (usage: %s)", usage)
+	}
+	requestID, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || requestID < 0 {
+		c.l.Fatalf("invalid request ID %q (usage: %s)", value, usage)
+	}
+	return requestID
 }
 
 func (c *Cli) start() {

@@ -26,6 +26,12 @@ github.com/uddinArsalan/ferry-proto v0.0.0-20261019160634-7b43e18a20eb h1:rZ5v4L
 github.com/uddinArsalan/ferry-proto v0.0.0-20261019160634-7b43e18a20eb/go.mod h1:8kaZTLGB5jS4mxcgP/YU7U7sOo8u1a4KAEKOyMnPgVQ=
 github.com/uddinArsalan/ferry-proto v0.0.0-20261019161642-18a53c7f800e h1:GwOQ3v7VNwxtt4FvI7B/hA0q/WTt8Sh118op9W1u5KY=
 github.com/uddinArsalan/ferry-proto v0.0.0-20261019161642-18a53c7f800e/go.mod h1:8kaZTLGB5jS4mxcgP/YU7U7sOo8u1a4KAEKOyMnPgVQ=
+github.com/uddinArsalan/ferry-proto v0.0.0-20261024133722-972e0f6cbc43 h1:9PgGxN76pm3yJ0c/2vJPglLE0o9YpcYUZbg9NAYSTFM=
+github.com/uddinArsalan/ferry-proto v0.0.0-20261024133722-972e0f6cbc43/go.mod h1:8kaZTLGB5jS4mxcgP/YU7U7sOo8u1a4KAEKOyMnPgVQ=
+github.com/uddinArsalan/ferry-proto v0.0.0-20261024140024-2146e9738653 h1:gn13sJIsTd6FIhuFIYLC+OqY3kqEZ7V1bhtSVmiaIHU=
+github.com/uddinArsalan/ferry-proto v0.0.0-20261024140024-2146e9738653/go.mod h1:8kaZTLGB5jS4mxcgP/YU7U7sOo8u1a4KAEKOyMnPgVQ=
+github.com/uddinArsalan/ferry-proto v0.0.0-20261024142033-f5983e43af11 h1:KLoTvxOxRgSqrJ1W+6ox1cxyY9p0nXbh1OXwG/f1KIk=
+github.com/uddinArsalan/ferry-proto v0.0.0-20261024142033-f5983e43af11/go.mod h1:8kaZTLGB5jS4mxcgP/YU7U7sOo8u1a4KAEKOyMnPgVQ=
 github.com/zalando/go-keyring v0.2.8 h1:6sD/Ucpl7jNq10rM2pgqTs0sZ9V3qMrqfIIy5YPccHs=
 github.com/zalando/go-keyring v0.2.8/go.mod h1:tsMo+VpRq5NGyKfxoBVjCuMrG47yj8cmakZDO5QGii0=
 golang.org/x/net v0.58.0 h1:ynWG7rqYi4ccpTEuPZ2QGWHktVEM9DMCj9yzDE0Q7To=
