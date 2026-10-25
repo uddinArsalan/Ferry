@@ -347,3 +347,50 @@ func (g *GroupServer) GetGroupPendingJoinRequestsForOwner(
 		PendingJoinRequests: pendingJoinRequests,
 	}, nil
 }
+
+func (g *GroupServer) GetGroupOwnerPeerID(
+	ctx context.Context,
+	req *gengroup.GetGroupRequest) (*genpeer.GetPeerResponse, error) {
+	peerID, err := g.groupRepo.GetGroupRolePeerID(ctx, domain.OWNER, req.GroupId)
+	if err != nil {
+		return nil, err
+	}
+	return &genpeer.GetPeerResponse{
+		PeerId: peerID,
+	}, nil
+}
+
+// returns current snapshot of peer and its group (along with each group peers)
+func (g *GroupServer) GetPeerSyncSnapshot(
+	ctx context.Context,
+	req *genpeer.GetPeerRequest) (*gengroup.SnapshotResponse, error) {
+	groupWithPeers, err := g.groupRepo.GetPeerSyncSnapshot(ctx, req.PeerId)
+	if err != nil {
+		return nil, err
+	}
+	groups := make([]*gengroup.GroupWithPeers, 0)
+	for i, group := range groupWithPeers {
+		groups = append(groups, &gengroup.GroupWithPeers{
+			Id:        group.Id,
+			GroupId:   group.GroupId,
+			Name:      group.Name,
+			CreatedAt: timestamppb.New(group.CreatedAt),
+			Peer:      make([]*genpeer.Peer, 0),
+		})
+
+		for _, peer := range group.Peers {
+			groups[i].Peer = append(groups[i].Peer, &genpeer.Peer{
+				Id:       peer.ID,
+				Name:     peer.Name,
+				Address:  peer.Address,
+				Port:     peer.Port,
+				PeerId:   peer.PeerID,
+				LastSeen: timestamppb.New(peer.LastSeen)})
+		}
+
+	}
+	return &gengroup.SnapshotResponse{
+		PeerId: req.PeerId,
+		Groups: groups,
+	}, nil
+}
