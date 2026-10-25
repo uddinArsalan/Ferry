@@ -577,3 +577,86 @@ func (r *GroupRepository) GetGroupPendingJoinRequestsBySender(
 	}
 	return &groupPendingRequest, nil
 }
+
+// get group owner - peer id
+func (r *GroupRepository) GetGroupRolePeerID(ctx context.Context, role domain.PeerRole, groupID string) (string, error) {
+	query := `
+		SELECT p.peer_id FROM 
+			group_peer_membership m JOIN
+				groups g
+				  ON g.id = m.group_id
+				JOIN peers p
+				  ON p.id = m.peer_id
+				   	WHERE g.group_id = $1
+						AND m.role = $2
+	`
+	row := r.db.QueryRowContext(ctx, query, groupID, role.String())
+	var peerID string
+	if err := row.Scan(&peerID); err != nil {
+		return "", err
+	}
+	return peerID, nil
+}
+
+// group id (int)  peer id (int)
+// id (int)  peer id (string) name ....
+// id (int)  group id(string). name ....
+
+func (r *GroupRepository) GetPeerSyncSnapshot(ctx context.Context, peerID string) ([]domain.GroupWithPeers, error) {
+	query := `
+		SELECT
+   			 g.id,
+   			 g.group_id,
+   			 g.name,
+   			 g.created_at,
+    	JSONB_AGG(
+        JSONB_BUILD_OBJECT(
+            'id', p.id,
+            'peer_id', p.peer_id,
+            'name', p.name,
+            'address', p.address,
+            'port', p.port,
+            'last_seen', p.last_seen
+        )
+    	) AS peers
+		FROM groups g
+		JOIN group_peer_membership m ON m.group_id = g.id
+		JOIN peers p ON p.id = m.peer_id
+		WHERE g.id IN (
+    		SELECT group_id
+    		FROM group_peer_membership
+   			WHERE peer_id = (
+        	SELECT id FROM peers WHERE peer_id = $1
+    	)
+	)
+	GROUP BY g.id, g.group_id, g.name, g.created_at;
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, peerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var groups []domain.GroupWithPeers
+	for rows.Next() {
+		var group domain.GroupWithPeers
+
+		if err := rows.Scan(
+			&group.Id,
+			&group.GroupId,
+			&group.Name,
+			&group.CreatedAt,
+			&group.Peers,
+		); err != nil {
+			return nil, err
+		}
+
+		groups = append(groups, group)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return groups, nil
+}

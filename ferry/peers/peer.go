@@ -97,6 +97,18 @@ func (p *PeerManager) GetGroupPeers(grpId string) (map[string]types.PeerLocal, b
 	return group.Peers, true
 }
 
+func (p *PeerManager) UpdatePeerGroup(peersGroupMap map[string]map[string]struct{}) {
+	p.mu.Lock()
+	p.peersGroupMap = peersGroupMap
+	p.mu.Unlock()
+}
+
+func (p *PeerManager) UpdateGroups(groups map[string]*types.SyncGroup) {
+	p.mu.Lock()
+	p.groups = groups
+	p.mu.Unlock()
+}
+
 func (p *PeerManager) AddPeerToGroup(peer types.Peer, grpId, localDir string) error {
 	// _, ok := p.GetPeerDetail(peerId)
 	// if !ok {
