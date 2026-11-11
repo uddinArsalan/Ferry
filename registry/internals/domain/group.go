@@ -9,3 +9,11 @@ type Group struct {
 	UserID    int64
 	CreatedAt time.Time
 }
+
+type GroupWithPeers struct {
+	Id        int64
+	GroupId   string
+	Name      string
+	CreatedAt time.Time
+	Peers     []Peer
+}
