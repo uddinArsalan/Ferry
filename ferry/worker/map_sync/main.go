@@ -38,6 +38,7 @@ func NewMapSyncer(
 
 func (ms MapSyncWorker) Run() {
 	go func() {
+		defer ms.ticker.Stop()
 		for {
 			select {
 			case <-ms.ctx.Done():

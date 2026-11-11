@@ -82,7 +82,7 @@ func (w *Watcher) recursiveDir(dirPath string, dirs chan string) error {
 	return nil
 }
 
-// multiple peers will be connected each peer has some directorys they want to sync with
+// multiple peers will be connected each peer has some directories they want to sync with
 // other peers that also has same directory , root dir will differ, sync group will be used
 // sync group contains group id they listen to each group contains other peers and for one peer
 // the root

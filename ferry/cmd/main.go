@@ -11,6 +11,7 @@ import (
 	"github.com/uddinArsalan/ferry/client"
 	"github.com/uddinArsalan/ferry/peers"
 	"github.com/uddinArsalan/ferry/tcp"
+	// mapsync "github.com/uddinArsalan/ferry/worker/map_sync"
 	// "github.com/uddinArsalan/ferry/peers"
 	// "github.com/uddinArsalan/ferry/tcp"
 	// "github.com/uddinArsalan/ferry/types"
@@ -36,6 +37,9 @@ func main() {
 	defer cancel()
 
 	logger := cli.NewLogger()
+
+	// mapSyncer := mapsync.NewMapSyncer(ctx, logger.GetLogger(), pm, groupClient, 30)
+
 	cli := cli.NewCli(ctx, logger.GetLogger(), authClient, groupClient, peerClient, pm, server)
 	cli.TakeUerParams()
 	// below code will update

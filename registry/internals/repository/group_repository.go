@@ -601,7 +601,6 @@ func (r *GroupRepository) GetGroupRolePeerID(ctx context.Context, role domain.Pe
 // group id (int)  peer id (int)
 // id (int)  peer id (string) name ....
 // id (int)  group id(string). name ....
-
 func (r *GroupRepository) GetPeerSyncSnapshot(ctx context.Context, peerID string) ([]domain.GroupWithPeers, error) {
 	query := `
 		SELECT
