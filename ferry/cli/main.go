@@ -216,9 +216,13 @@ func (c *Cli) createGroup() {
 	if err != nil {
 		c.l.Fatalf("error creating group, try after some time %v", err.Error())
 	}
+	currPeerID, err := c.pm.GetPeerId()
+	if err != nil {
+		c.l.Fatalln("peer not found ")
+	}
 	_, err = c.groupClient.CreateGroupPeerMembership(c.ctx, &group.CreateGroupPeerMembershipRequest{
 		GroupId: syncID,
-		PeerId:  c.pm.GetPeerId(),
+		PeerId:  currPeerID,
 		Role:    group.PeerRole_OWNER,
 	})
 	if err != nil {
@@ -229,13 +233,18 @@ func (c *Cli) createGroup() {
 
 func (c *Cli) initPeer() {
 	c.l.Println("Init peer creation")
-	isPeerExists := true
-	peerID, err := keyring.GetPeerId()
+	peerID, err := utils.GetPeerId()
 	if err != nil {
-		isPeerExists = false
-		peerID, err = utils.NewId()
-		if err != nil {
-			c.l.Fatal("some error occurred try after some time")
+		c.l.Fatal("some error occurred try after some time")
+	}
+	isPeerExists := true
+	_, err = c.peerClient.GetPeer(c.ctx, &peer.GetPeerRequest{
+		PeerId: peerID,
+	})
+
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			isPeerExists = false
 		}
 	}
 	if !isPeerExists {
@@ -276,8 +285,8 @@ func (c *Cli) initPeer() {
 func (c *Cli) invitePeerToGroup() {
 	peerID, groupID := flag.Arg(2), flag.Arg(3)
 
-	currPeerId := c.pm.GetPeerId()
-	if currPeerId == "" {
+	currPeerId, err := c.pm.GetPeerId()
+	if err != nil || currPeerId == "" {
 		c.l.Fatalf("unauthenticated or some problem with config")
 	}
 
@@ -288,7 +297,7 @@ func (c *Cli) invitePeerToGroup() {
 		c.l.Fatal("Error: group ID is required (usage: invite peer <peer_id> <group_id>)")
 	}
 
-	_, err := c.peerClient.GetPeer(c.ctx, &peer.GetPeerRequest{PeerId: peerID})
+	_, err = c.peerClient.GetPeer(c.ctx, &peer.GetPeerRequest{PeerId: peerID})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			c.l.Fatal("peer not found")
@@ -345,8 +354,12 @@ func (c *Cli) invitePeerToGroup() {
 
 // will give all pending invites for the current peer (by other peer group owners)
 func (c *Cli) getAllPendingInvites() {
+	currPeerId, err := c.pm.GetPeerId()
+	if err != nil || currPeerId == "" {
+		c.l.Fatalf("unauthenticated or some problem with config")
+	}
 	pendingInvites, err := c.groupClient.GetAllPendingInvites(c.ctx, &group.GetAllPendingRequest{
-		PeerId: c.pm.GetPeerId(),
+		PeerId: currPeerId,
 	})
 	if err != nil {
 		c.l.Fatal("error getting pending invites for curr peer")
@@ -430,11 +443,11 @@ func (c *Cli) acceptInvite() {
 // will give all pending join req send by a curr peer to peer group owners
 // across other groups to join in groups, only those peer owners can accept or reject
 func (c *Cli) getAllJoinReqByPeer() {
-	currPeerID := c.pm.GetPeerId()
-	// need to either do ferry start or run (need to decide)
-	if currPeerID == "" {
-		c.l.Fatal("Error: invalid configuration")
+	currPeerID, err := c.pm.GetPeerId()
+	if err != nil || currPeerID == "" {
+		c.l.Fatalf("unauthenticated or some problem with config")
 	}
+	// need to either do ferry start or run (need to decide)
 	pendingJoinReq, err := c.groupClient.GetAllPendingJoinRequestsBySender(c.ctx, &group.GetAllPendingRequest{
 		PeerId: currPeerID,
 	})
@@ -461,10 +474,9 @@ func (c *Cli) getAllJoinReqByPeer() {
 // will give all pending join req send by a peers for this
 // curr peer across all groups to join in a group
 func (c *Cli) getAllJoinReqForPeer() {
-	currPeerID := c.pm.GetPeerId()
-	// need to either do ferry start or run (need to decide)
-	if currPeerID == "" {
-		c.l.Fatal("Error: invalid configuration")
+	currPeerID, err := c.pm.GetPeerId()
+	if err != nil || currPeerID == "" {
+		c.l.Fatalf("unauthenticated or some problem with config")
 	}
 	pendingJoinReq, err := c.groupClient.GetAllPendingJoinRequestsForOwner(c.ctx, &group.GetAllPendingRequest{
 		PeerId: currPeerID,
@@ -565,14 +577,12 @@ func (c *Cli) sendJoinReqToGroup() {
 		c.l.Fatal("Error: group ID is required (usage: join <group_id>)")
 	}
 
-	currPeerID := c.pm.GetPeerId()
-
-	// need to either do ferry start or run (need to decide)
-	if currPeerID == "" {
-		c.l.Fatal("Error: invalid configuration")
+	currPeerID, err := c.pm.GetPeerId()
+	if err != nil || currPeerID == "" {
+		c.l.Fatalf("unauthenticated or some problem with config")
 	}
 
-	_, err := c.groupClient.GetGroup(c.ctx, &group.GetGroupRequest{GroupId: groupID})
+	_, err = c.groupClient.GetGroup(c.ctx, &group.GetGroupRequest{GroupId: groupID})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			c.l.Fatal("group not found")

@@ -5,6 +5,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"time"
+
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/uddinArsalan/ferry/keyring"
 )
 
 func NewId() (string, error) {
@@ -15,18 +19,43 @@ func NewId() (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
-type AuthResponse interface {
-	GetAccessToken() string
-	GetRefreshToken() string
-	GetAccessExpiresAt() int64
-	GetRefreshExpiresAt() int64
+func GetPrivKey() (crypto.PrivKey, error) {
+	privKey, err := keyring.GetPrivKey()
+	if err == nil && privKey != "" {
+		return crypto.UnmarshalECDSAPrivateKey([]byte(privKey))
+	}
+	cryptoPrivKey, _, err := crypto.GenerateECDSAKeyPair(rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	privKreyBytes, err := cryptoPrivKey.Raw()
+	if err != nil {
+		return nil, err
+	}
+	err = keyring.SavePrivKey(string(privKreyBytes))
+	if err != nil {
+		return nil, err
+	}
+	return cryptoPrivKey, nil
+}
+
+func GetPeerId() (string, error) {
+	privKey, err := GetPrivKey()
+	if err != nil {
+		return "", err
+	}
+	peerID, err := peer.IDFromPrivateKey(privKey)
+	if err != nil {
+		return "", err
+	}
+	return peerID.String(), nil
 }
 
 func getDateAndTime(milliseconds int64) time.Time {
 	return time.Now().Add(time.Duration(milliseconds) * time.Millisecond)
 }
 
-func FormatAuthResults[T AuthResponse](res T) string {
+func FormatAuthResults[T keyring.AuthResponse](res T) string {
 	return fmt.Sprintf(`
 			ACCESS TOKEN : %v\n, REFRESH_TOKEN : %v\n,
 			ACCESS_TOKEN_EXPIRES_AT : %v\n,
