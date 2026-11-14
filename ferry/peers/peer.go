@@ -2,19 +2,22 @@ package peers
 
 import (
 	// "encoding/json"
+	"bufio"
 	"errors"
-	"net"
 	"sync"
 	"time"
 
-	"github.com/uddinArsalan/ferry/keyring"
 	"github.com/uddinArsalan/ferry/types"
+	"github.com/uddinArsalan/ferry/utils"
 )
 
 // we might need mutexes
 
-var ErrGrpNotFound = errors.New("no group found with provided group id")
-var ErrPeerNotFound = errors.New("no peer found with provided peer id")
+var (
+	ErrGrpNotFound  = errors.New("no group found with provided group id")
+	ErrNoConn       = errors.New("no connection found")
+	ErrPeerNotFound = errors.New("peer not found")
+)
 
 type PeerManager struct {
 	mu            sync.RWMutex
@@ -22,11 +25,11 @@ type PeerManager struct {
 	peers         map[string]*types.Peer         // peerID -> peer detail
 	groups        map[string]*types.SyncGroup    // syncID/grpId -> group
 	peersGroupMap map[string]map[string]struct{} // peerId -> set of syncIds/groupIds
-	connMap       map[string]map[string]net.Conn // map of peer id to its map of connections with other peers
+	connMap       map[string]*bufio.ReadWriter   // map of peer id to its map of connections with other peers
 }
 
 func NewPeerManager() *PeerManager {
-	currPeerId, err := keyring.GetPeerId()
+	currPeerId, err := utils.GetPeerId()
 	if err != nil {
 		currPeerId = ""
 	}
@@ -35,7 +38,7 @@ func NewPeerManager() *PeerManager {
 		peers:         make(map[string]*types.Peer),
 		peersGroupMap: make(map[string]map[string]struct{}),
 		groups:        make(map[string]*types.SyncGroup),
-		connMap:       make(map[string]map[string]net.Conn),
+		connMap:       make(map[string]*bufio.ReadWriter),
 	}
 }
 
@@ -43,8 +46,13 @@ func (p *PeerManager) SetPeerId(peerId string) {
 	p.currPeerId = peerId
 }
 
-func (p *PeerManager) GetPeerId() string {
-	return p.currPeerId
+func (p *PeerManager) GetPeerId() (string, error) {
+	peerID, err := utils.GetPeerId()
+	if err != nil {
+		return "", err
+	}
+	p.SetPeerId(peerID)
+	return p.currPeerId, nil
 }
 
 func (p *PeerManager) AddPeer(peerId, name, address string, port uint32) {
@@ -68,13 +76,6 @@ func (p *PeerManager) GetPeerDetail(peerId string) (*types.Peer, bool) {
 		return nil, false
 	}
 	return peer, true
-}
-
-func (p *PeerManager) GetPeerConnections(peerId string) (*map[string]net.Conn, bool) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	connections, ok := p.connMap[peerId]
-	return &connections, ok
 }
 
 func (p *PeerManager) GetGroup(grpId string) (*types.SyncGroup, bool) {
@@ -195,11 +196,13 @@ func (p *PeerManager) RemovePeerFromGroup(peerId string, grpId string) error {
 
 func (p *PeerManager) GetPeersToConnect() []types.PeerLocal {
 	peersArr := make([]types.PeerLocal, 0)
-	currPeerId := p.GetPeerId()
+	if p.currPeerId == "" {
+		return []types.PeerLocal{}
+	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	// provides all groups for which peer is a member
-	for grpId := range p.peersGroupMap[currPeerId] {
+	for grpId := range p.peersGroupMap[p.currPeerId] {
 		peers, ok := p.GetGroupPeers(grpId)
 		if !ok {
 			return nil
@@ -228,9 +231,24 @@ func (p *PeerManager) GetPeersToConnect() []types.PeerLocal {
 // 	}
 // }
 
-func (p *PeerManager) GetPeersConn(peerId string) net.Conn {
-	currPeerId := p.GetPeerId()
-	return p.connMap[currPeerId][peerId]
+func (p *PeerManager) GetPeersConn(peerId string) (*bufio.ReadWriter, error) {
+	currPeerId := p.currPeerId
+	if currPeerId == "" {
+		return nil, ErrPeerNotFound
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	sm, ok := p.connMap[peerId]
+	if !ok {
+		return nil, ErrNoConn
+	}
+	return sm, nil
+}
+
+func (p *PeerManager) UpdatePeerConn(peer2 string, stream *bufio.ReadWriter) {
+	p.mu.Lock()
+	p.connMap[peer2] = stream
+	p.mu.Unlock()
 }
 
 // when a peer init we have to define a peer id local, and it will start listening for conn

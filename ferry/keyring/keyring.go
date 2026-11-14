@@ -3,7 +3,6 @@ package keyring
 import (
 	"strconv"
 
-	"github.com/uddinArsalan/ferry/utils"
 	"github.com/zalando/go-keyring"
 	"golang.org/x/oauth2"
 )
@@ -12,7 +11,14 @@ var (
 	service = "ferry"
 )
 
-func SaveToKeyRing(authRes utils.AuthResponse) error {
+type AuthResponse interface {
+	GetAccessToken() string
+	GetRefreshToken() string
+	GetAccessExpiresAt() int64
+	GetRefreshExpiresAt() int64
+}
+
+func SaveToKeyRing(authRes AuthResponse) error {
 	accessTokenExpiry := strconv.FormatInt(authRes.GetAccessExpiresAt(), 10)
 	refreshTokenExpiry := strconv.FormatInt(authRes.GetRefreshExpiresAt(), 10)
 	if err := keyring.Set(service, "access_token", authRes.GetAccessToken()); err != nil {
@@ -27,12 +33,12 @@ func SaveToKeyRing(authRes utils.AuthResponse) error {
 	return keyring.Set(service, "refresh_token_expiry", refreshTokenExpiry)
 }
 
-func SavePeerID(localPeerId string) error {
-	return keyring.Set(service, "peer_id", localPeerId)
+func SavePrivKey(privKey string) error {
+	return keyring.Set(service, "priv_key", privKey)
 }
 
-func GetPeerId() (string, error) {
-	return keyring.Get(service, "peer_id")
+func GetPrivKey() (string, error) {
+	return keyring.Get(service, "priv_key")
 }
 
 func GetTokens() (*oauth2.Token, error) {
