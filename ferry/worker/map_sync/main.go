@@ -54,16 +54,19 @@ func (ms MapSyncWorker) Run() {
 }
 
 func (ms MapSyncWorker) refresh() error {
-	peerID := ms.pm.GetPeerId()
+	currPeerID, err := ms.pm.GetPeerId()
+	if err != nil || currPeerID == "" {
+		ms.l.Fatalf("unauthenticated or some problem with config")
+	}
 	g, err := ms.groupClient.GetPeerSyncSnapshot(ms.ctx, &peer.GetPeerRequest{
-		PeerId: peerID,
+		PeerId: currPeerID,
 	})
 	if err != nil {
 		ms.l.Printf("Error: %v", err.Error())
 		return err
 	}
 	// update peer -> groups config
-	ms.updatePeerGroup(peerID, g)
+	ms.updatePeerGroup(currPeerID, g)
 
 	// update groups
 	err = ms.updateGroups(g)
