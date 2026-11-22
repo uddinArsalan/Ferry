@@ -78,20 +78,20 @@ func (p *PeerManager) GetPeerDetail(peerId string) (*types.Peer, bool) {
 	return peer, true
 }
 
-func (p *PeerManager) GetGroup(grpId string) (*types.SyncGroup, bool) {
+func (p *PeerManager) GetGroup(groupID string) (*types.SyncGroup, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	group, ok := p.groups[grpId]
+	group, ok := p.groups[groupID]
 	if !ok {
 		return nil, false
 	}
 	return group, true
 }
 
-func (p *PeerManager) GetGroupPeers(grpId string) (map[string]types.PeerLocal, bool) {
+func (p *PeerManager) GetGroupPeers(groupID string) (map[string]types.PeerLocal, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	group, ok := p.GetGroup(grpId)
+	group, ok := p.GetGroup(groupID)
 	if !ok {
 		return nil, false
 	}
@@ -110,12 +110,12 @@ func (p *PeerManager) UpdateGroups(groups map[string]*types.SyncGroup) {
 	p.mu.Unlock()
 }
 
-func (p *PeerManager) AddPeerToGroup(peer types.Peer, grpId, localDir string) error {
+func (p *PeerManager) AddPeerToGroup(peer types.Peer, groupID, localDir string) error {
 	// _, ok := p.GetPeerDetail(peerId)
 	// if !ok {
 	// 	return ErrPeerNotFound
 	// }
-	group, ok := p.GetGroup(grpId)
+	group, ok := p.GetGroup(groupID)
 	if !ok {
 		return ErrGrpNotFound
 	}
@@ -135,15 +135,15 @@ func (p *PeerManager) AddPeerToGroup(peer types.Peer, grpId, localDir string) er
 	if !ok {
 		p.peersGroupMap[peer.ID] = map[string]struct{}{}
 	}
-	p.peersGroupMap[peer.ID][grpId] = struct{}{}
+	p.peersGroupMap[peer.ID][groupID] = struct{}{}
 	p.mu.Unlock()
 	return nil
 }
 
-func (p *PeerManager) AddGroup(grpId, name string) {
+func (p *PeerManager) AddGroup(groupID, name string) {
 	p.mu.Lock()
-	p.groups[grpId] = &types.SyncGroup{
-		GroupID: grpId,
+	p.groups[groupID] = &types.SyncGroup{
+		GroupID: groupID,
 		Name:    name,
 		Peers:   map[string]types.PeerLocal{},
 	}
@@ -169,27 +169,27 @@ func (p *PeerManager) UpdateGroupPeerConfig(groupID string, localDir string) err
 func (p *PeerManager) RemovePeerFromAllGroups(peerId string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	for grpId := range p.groups {
-		_, ok := p.groups[grpId].Peers[peerId]
+	for groupID := range p.groups {
+		_, ok := p.groups[groupID].Peers[peerId]
 		if ok {
-			delete(p.groups[grpId].Peers, peerId)
+			delete(p.groups[groupID].Peers, peerId)
 		}
 		p.peersGroupMap[peerId] = map[string]struct{}{}
 	}
 }
 
-func (p *PeerManager) RemovePeerFromGroup(peerId string, grpId string) error {
+func (p *PeerManager) RemovePeerFromGroup(peerId string, groupID string) error {
 	// _, ok := p.GetPeerDetail(peerId)
 	// if !ok {
 	// 	return ErrPeerNotFound
 	// }
-	_, ok := p.GetGroup(grpId)
+	_, ok := p.GetGroup(groupID)
 	if !ok {
 		return ErrGrpNotFound
 	}
 	p.mu.Lock()
-	delete(p.peersGroupMap[peerId], grpId)
-	delete(p.groups[grpId].Peers, peerId)
+	delete(p.peersGroupMap[peerId], groupID)
+	delete(p.groups[groupID].Peers, peerId)
 	p.mu.Unlock()
 	return nil
 }
@@ -202,8 +202,8 @@ func (p *PeerManager) GetPeersToConnect() []types.PeerLocal {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	// provides all groups for which peer is a member
-	for grpId := range p.peersGroupMap[p.currPeerId] {
-		peers, ok := p.GetGroupPeers(grpId)
+	for groupID := range p.peersGroupMap[p.currPeerId] {
+		peers, ok := p.GetGroupPeers(groupID)
 		if !ok {
 			return nil
 		}

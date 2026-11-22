@@ -3,9 +3,9 @@ package tcp
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/libp2p/go-libp2p"
@@ -133,52 +133,40 @@ func readData(rw *bufio.ReadWriter) {
 
 }
 
-func (n *Node) WriteData() {
-	scanner := bufio.NewScanner(os.Stdin)
+type Message struct {
+	Content string
+}
 
-	for {
-		fmt.Println("Enter peer ID (empty to exit):")
-
-		if !scanner.Scan() {
-			if err := scanner.Err(); err != nil {
-				log.Printf("Reading peer ID failed: %v", err)
-			}
-			break
-		}
-
-		peerID := scanner.Text()
-		if peerID == "" {
-			return
-		}
-
+// this will write data to every peer of a group id
+func (n *Node) WriteData(groupID string, msg Message) {
+	peerMap, ok := n.pm.GetGroupPeers(groupID)
+	if !ok {
+		log.Println("No peers found to share data ")
+		return
+	}
+	for peerID := range peerMap {
+		fmt.Printf("sending message to peer %v: %+v", peerID, msg)
 		rw, err := n.pm.GetPeersConn(peerID)
 		if err != nil {
-			log.Printf("Peer connection for %q not found: %v", peerID, err)
+			log.Printf("error getting connection details %v", err)
 			continue
 		}
-
-		fmt.Println("Enter message:")
-
-		if !scanner.Scan() {
-			break
+		data, err := json.Marshal(msg)
+		if err != nil {
+			log.Printf("invalid message format or error parsing %v", err)
+			continue
 		}
-
-		data := scanner.Bytes()
-
 		if _, err := rw.Write(data); err != nil {
-			log.Println("Write error:", err)
+			log.Println("write error:", err)
 			continue
 		}
 
 		if err := rw.Flush(); err != nil {
-			log.Println("Flush error:", err)
+			log.Println("flush error:", err)
 			continue
 		}
 
-		fmt.Println("Message sent successfully")
+		fmt.Println("message sent successfully")
 	}
 
-	if err := scanner.Err(); err != nil {
-		log.Println("Scanner error:", err)
-	}
 }

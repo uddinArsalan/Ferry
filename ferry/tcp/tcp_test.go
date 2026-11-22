@@ -32,6 +32,8 @@ import (
 
 func TestNode(t *testing.T) {
 	pm := peers.NewPeerManager()
+	pm.AddGroup("A", "group-A")
+	pm.AddGroup("B", "group-B")
 	privKey, err := utils.GetPrivKey()
 	if err != nil {
 		t.Fatal(err)
@@ -44,26 +46,38 @@ func TestNode(t *testing.T) {
 	peersToConnect := []types.PeerLocal{
 		{
 			Peer: types.Peer{
-				ID:      "QmYusyMCeeGCBzrRAsiiAbeBecjAQ4N7yKvm9Y6HKntnaD",
+				ID:      "QmVxts1MuyYrh2VnwNBRbkg4pjzo3UmxeikY7fPK8NzW43",
 				Address: "127.0.0.1",
 				Name:    "Peer A",
-				Port:    63502,
+				Port:    51611,
 			},
 			DirPath: "/A",
 		},
-		{
-			Peer: types.Peer{
-				ID:      "QmRn9vxm1gqBkmBKpUfeBDfoFJqoU5Z973Y4gHrXThRZSQ",
-				Address: "127.0.0.1",
-				Name:    "Peer B",
-				Port:    63611,
-			},
-			DirPath: "/B",
-		},
+		// {
+		// 	Peer: types.Peer{
+		// 		ID:      "QmPTU5RifvrBUiwvPQxHvFuW4mEcX1sTn47BU7DTDeYgYU",
+		// 		Address: "127.0.0.1",
+		// 		Name:    "Peer B",
+		// 		Port:    51605,
+		// 	},
+		// 	DirPath: "/B",
+		// },
+	}
+	for _, peer := range peersToConnect {
+		if err := pm.AddPeerToGroup(types.Peer{
+			ID:      peer.Peer.ID,
+			Name:    peer.Peer.Name,
+			Address: peer.Peer.Address,
+			Port:    peer.Peer.Port,
+		}, "A", "/a"); err != nil {
+			t.Logf("error adding peer to group %v", err)
+			continue
+		}
 	}
 	node.ConnectToPeers(peersToConnect)
-	go node.WriteData()
-	select {}
+	node.WriteData("A", tcp.Message{
+		Content: "Hello group A members",
+	})
 }
 
 func TestNodeInit(t *testing.T) {
