@@ -9,21 +9,23 @@ import (
 )
 
 type Watcher struct {
-	watcher *fsnotify.Watcher
+	eventChan chan types.Event
+	watcher   *fsnotify.Watcher
 }
 
-func NewWatcher() (*Watcher, error) {
+func NewWatcher(eventChan chan types.Event) (*Watcher, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Printf("Error in creating watcher")
 		return nil, err
 	}
 	return &Watcher{
-		watcher: watcher,
+		eventChan: eventChan,
+		watcher:   watcher,
 	}, nil
 }
 
-func (w *Watcher) WatchFile(dirPath string, eventChan chan types.Event) {
+func (w *Watcher) WatchFile(dirPath string, groupID string) {
 	dirs := make(chan string)
 	go func() {
 		defer close(dirs)
@@ -33,6 +35,8 @@ func (w *Watcher) WatchFile(dirPath string, eventChan chan types.Event) {
 		}
 	}()
 
+	log.Printf("DIR : %v", dirs)
+
 	for dir := range dirs {
 		if err := w.watcher.Add(dir); err != nil {
 			log.Printf("Error in adding directory %v: %v", dir, err)
@@ -41,7 +45,6 @@ func (w *Watcher) WatchFile(dirPath string, eventChan chan types.Event) {
 	}
 
 	go func() {
-		defer close(eventChan)
 		for {
 			select {
 			case event, ok := <-w.watcher.Events:
@@ -51,9 +54,22 @@ func (w *Watcher) WatchFile(dirPath string, eventChan chan types.Event) {
 				if event.Has(fsnotify.Chmod) {
 					continue
 				}
-				eventChan <- types.Event{
-					Path: event.Name,
-					Op:   types.EventType(event.Op),
+				if event.Has(fsnotify.Create) {
+					info, err := os.Stat(event.Name)
+					if err != nil {
+						continue
+					}
+					if info.IsDir() {
+						if err := w.watcher.Add(event.Name); err != nil {
+							log.Printf("Error in adding directory %v: %v", event.Name, err)
+							return
+						}
+					}
+				}
+				w.eventChan <- types.Event{
+					Path:    event.Name,
+					Op:      types.EventType(event.Op),
+					GroupID: groupID,
 				}
 			case err, ok := <-w.watcher.Errors:
 				if !ok {
@@ -81,8 +97,3 @@ func (w *Watcher) recursiveDir(dirPath string, dirs chan string) error {
 	}
 	return nil
 }
-
-// multiple peers will be connected each peer has some directories they want to sync with
-// other peers that also has same directory , root dir will differ, sync group will be used
-// sync group contains group id they listen to each group contains other peers and for one peer
-// the root

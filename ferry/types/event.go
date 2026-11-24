@@ -2,15 +2,16 @@ package types
 
 import "github.com/fsnotify/fsnotify"
 
-type EventType fsnotify.Op
+type EventType = fsnotify.Op
 
 const (
-	CREATE = fsnotify.Create
-	RENAME = fsnotify.Rename
-	REMOVE = fsnotify.Remove
-) 
+	EventCreate = fsnotify.Create
+	EventRename = fsnotify.Rename
+	EventRemove = fsnotify.Remove
+)
 
 type Event struct {
-	Path string
-	Op   EventType
+	Path    string
+	Op      EventType
+	GroupID string
 }

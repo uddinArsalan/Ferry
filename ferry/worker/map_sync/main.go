@@ -32,13 +32,17 @@ func NewMapSyncer(
 		l:           l,
 		pm:          pm,
 		groupClient: groupClient,
-		ticker:      time.NewTicker(time.Duration(interval)),
+		ticker:      time.NewTicker(time.Duration(interval) * time.Second),
 	}
 }
 
+var MAX_RETRY = 3
+
+// after a defined interval update local configurations
 func (ms MapSyncWorker) Run() {
 	go func() {
 		defer ms.ticker.Stop()
+		errCnt := 0
 		for {
 			select {
 			case <-ms.ctx.Done():
@@ -46,7 +50,11 @@ func (ms MapSyncWorker) Run() {
 			case <-ms.ticker.C:
 				err := ms.refresh()
 				if err != nil {
-					return
+					errCnt++
+					log.Printf("error refreshing config %v", err)
+					if errCnt > MAX_RETRY {
+						return
+					}
 				}
 			}
 		}
@@ -79,6 +87,10 @@ func (ms MapSyncWorker) refresh() error {
 func (ms MapSyncWorker) updatePeerGroup(peerID string, groups *group.SnapshotResponse) {
 	peersGroupMap := make(map[string]map[string]struct{})
 	for _, group := range groups.Groups {
+		_, ok := peersGroupMap[peerID]
+		if !ok {
+			peersGroupMap[peerID] = map[string]struct{}{}
+		}
 		peersGroupMap[peerID][group.GroupId] = struct{}{}
 	}
 	ms.pm.UpdatePeerGroup(peersGroupMap)

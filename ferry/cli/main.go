@@ -19,6 +19,7 @@ import (
 	"github.com/uddinArsalan/ferry/peers"
 	"github.com/uddinArsalan/ferry/tcp"
 	"github.com/uddinArsalan/ferry/utils"
+	"github.com/uddinArsalan/ferry/watcher"
 	"golang.org/x/term"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -32,7 +33,8 @@ type Cli struct {
 	peerClient  peer.PeerServiceClient
 	sc          *bufio.Scanner
 	pm          *peers.PeerManager
-	server      *tcp.Server
+	server      *tcp.Node
+	watcher     *watcher.Watcher
 }
 
 func NewCli(
@@ -42,7 +44,8 @@ func NewCli(
 	groupClient group.GroupServiceClient,
 	peerClient peer.PeerServiceClient,
 	pm *peers.PeerManager,
-	server *tcp.Server,
+	server *tcp.Node,
+	watcher *watcher.Watcher,
 ) Cli {
 	return Cli{
 		ctx:         ctx,
@@ -53,10 +56,11 @@ func NewCli(
 		pm:          pm,
 		server:      server,
 		sc:          bufio.NewScanner(os.Stdin),
+		watcher:     watcher,
 	}
 }
 
-func (c *Cli) TakeUerParams() {
+func (c *Cli) TakeUserParams() {
 	flag.Parse()
 	switch flag.Arg(0) {
 	case "login":
@@ -196,6 +200,13 @@ func (c *Cli) registerUser(loginReq *auth.LoginRequest) {
 	c.l.Println("Registered successfully")
 }
 
+// when this peer create a group it should also provide its local dir
+// whether it will be a part of group or not ?
+// if not then it will just invite other peers that will provide local dir and
+// this will just be a admin/owner for req and all
+
+// otherwise it will be the owner as well as the member
+
 // sync id represent local grp id
 func (c *Cli) createGroup() {
 	authContext, err := AuthContext()
@@ -204,31 +215,63 @@ func (c *Cli) createGroup() {
 	}
 	c.l.Println("enter the group name: ")
 	c.sc.Scan()
+
 	name := c.sc.Text()
 	c.l.Println("Wait till we create your group...")
-	syncID, err := utils.NewId()
+
+	groupID, err := utils.NewId()
 	if err != nil {
 		c.l.Fatal("error creating group, try after some time")
 	}
-	c.pm.AddGroup(syncID, name)
+
+	c.pm.AddGroup(groupID, name)
+
 	_, err = c.groupClient.CreateGroup(c.ctx,
-		&group.CreateGroupRequest{GroupId: syncID, Name: name}, authContext)
+		&group.CreateGroupRequest{GroupId: groupID, Name: name}, authContext)
 	if err != nil {
 		c.l.Fatalf("error creating group, try after some time %v", err.Error())
 	}
+
 	currPeerID, err := c.pm.GetPeerId()
 	if err != nil {
-		c.l.Fatalln("peer not found ")
+		c.l.Fatalln("peer not found")
 	}
+
 	_, err = c.groupClient.CreateGroupPeerMembership(c.ctx, &group.CreateGroupPeerMembershipRequest{
-		GroupId: syncID,
+		GroupId: groupID,
 		PeerId:  currPeerID,
 		Role:    group.PeerRole_OWNER,
 	})
+
 	if err != nil {
 		c.l.Fatalf("error creating group, try after some time %v", err.Error())
 	}
-	c.l.Printf("Group created successfully Group ID = %v\n", syncID)
+	c.l.Printf("Group created successfully Group ID = %v\n", groupID)
+
+	c.l.Println("Enter your Local dir that you want to sync in this group:")
+	c.sc.Scan()
+	localDir := c.sc.Text()
+
+	if localDir == "" {
+		c.l.Fatal("Error: local_dir is required")
+	}
+
+	// start watching file for events
+	go c.watcher.WatchFile(localDir, groupID)
+
+	// need to persist (grpid,local_dir) so if client disconnects and connect again
+	err = config.SaveLocalDir(config.LocalDirConfig{
+		GroupID:  groupID,
+		LocalDir: localDir,
+	})
+	if err != nil {
+		c.l.Fatal("error adding config")
+	}
+
+	err = c.pm.UpdateGroupPeerConfig(groupID, localDir)
+	if err != nil {
+		c.l.Fatal("error updating local config")
+	}
 }
 
 func (c *Cli) initPeer() {
@@ -251,7 +294,7 @@ func (c *Cli) initPeer() {
 		c.l.Println("enter the peer name: ")
 		c.sc.Scan()
 		name := c.sc.Text()
-		ln := c.server.GetAddressAndPort()
+		ln := c.server.GetAddrsAndPort()
 		address := ln[0]
 		port, err := strconv.ParseUint(ln[1], 10, 32)
 		if err != nil {
@@ -426,6 +469,8 @@ func (c *Cli) acceptInvite() {
 		c.l.Fatal("Error: local_dir is required")
 	}
 
+	go c.watcher.WatchFile(localDir, req.GroupId)
+
 	// need to persist (grpid,local_dir) so if client disconnects and connect again
 	err = config.SaveLocalDir(config.LocalDirConfig{
 		GroupID:  req.GroupId,
@@ -534,6 +579,8 @@ func (c *Cli) acceptJoin() {
 	if localDir == "" {
 		c.l.Fatal("Error: local_dir is required")
 	}
+
+	go c.watcher.WatchFile(localDir, req.GroupId)
 
 	// need to persist (grpid,local_dir) so if client disconnects and connect again
 	err = config.SaveLocalDir(config.LocalDirConfig{
@@ -644,14 +691,13 @@ func (c *Cli) requestIDArg(index int, usage string) int64 {
 
 func (c *Cli) start() {
 	c.initPeer()
-	go c.server.Start()
-	c.server.ConnectToPeers()
 	localDirMap, err := config.GetLocalDirs()
 	if err != nil {
 		c.l.Fatal("error reading config files")
 	}
 	for groupID, localDir := range localDirMap {
 		err = c.pm.UpdateGroupPeerConfig(groupID, localDir)
+		go c.watcher.WatchFile(localDir, groupID)
 		if err != nil {
 			c.l.Println("error updating local config")
 		}

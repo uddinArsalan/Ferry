@@ -5,12 +5,18 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/uddinArsalan/ferry/cli"
 	"github.com/uddinArsalan/ferry/client"
 	"github.com/uddinArsalan/ferry/peers"
 	"github.com/uddinArsalan/ferry/tcp"
+	"github.com/uddinArsalan/ferry/types"
+	"github.com/uddinArsalan/ferry/utils"
+	"github.com/uddinArsalan/ferry/watcher"
+	mapsync "github.com/uddinArsalan/ferry/worker/map_sync"
 	// mapsync "github.com/uddinArsalan/ferry/worker/map_sync"
 	// "github.com/uddinArsalan/ferry/peers"
 	// "github.com/uddinArsalan/ferry/tcp"
@@ -22,52 +28,54 @@ func main() {
 	serverAddr := fmt.Sprintf("127.0.0.1:%d", 5051)
 	g, err := client.NewGRPCClient(serverAddr)
 	if err != nil {
-		log.Fatalf("error initialising grpc client conn")
+		log.Fatalf("error initialising grpc client conn %v", err)
 	}
-
 	authClient := g.NewAuthClient()
 	groupClient := g.NewGroupClient()
 	peerClient := g.NewPeerClient()
 	pm := peers.NewPeerManager()
-
-	listenerAddr := fmt.Sprintf("127.0.0.1:%d", 9000)
-	server := tcp.NewServer(listenerAddr, pm)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	defer cancel()
-
 	logger := cli.NewLogger()
 
-	// mapSyncer := mapsync.NewMapSyncer(ctx, logger.GetLogger(), pm, groupClient, 30)
+	ctx, stop := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
+	defer stop()
 
-	cli := cli.NewCli(ctx, logger.GetLogger(), authClient, groupClient, peerClient, pm, server)
-	cli.TakeUerParams()
-	// below code will update
-	// pm := peers.NewPeerManager()
+	// syncer of local maps and configuration
+	mapSyncer := mapsync.NewMapSyncer(ctx, logger.GetLogger(), pm, groupClient, 30)
+	mapSyncer.Run()
 
-	// var dir string
-	// // var grpId string
-	// flag.StringVar(&dir, "dir", "", "directory to watch")
-	// // flag.StringVar(&grpId,"grpId","","sync group to add this peer")
-	// flag.Parse()
+	// node initialisation
+	// initialise priv key
+	privKey, err := utils.GetPrivKey()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	// w, err := watcher.NewWatcher()
-	// if err != nil {
-	// 	log.Printf("Error in creating watcher")
-	// 	return
-	// }
+	eventChan := make(chan types.Event)
 
-	// eventChan := make(chan types.Event, 10)
+	watcher, err := watcher.NewWatcher(eventChan)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	// w.WatchFile(dir, eventChan)
+	// creating new node
+	node, err := tcp.NewNode(ctx, privKey, pm, eventChan, 20)
 
-	// server := tcp.NewServer(":3000", pm)
+	if err != nil {
+		log.Fatal(err)
+	}
+	node.Start()
 
-	// go server.Start()
+	cli := cli.NewCli(ctx, logger.GetLogger(), authClient, groupClient, peerClient, pm, node, watcher)
+	cli.TakeUserParams()
 
-	// go server.ConnectToPeers()
+	<-ctx.Done()
 
-	// go pm.SendToAllPeersOfGroup(eventChan)
-
-	// <-make(chan struct{})
+	err = node.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
