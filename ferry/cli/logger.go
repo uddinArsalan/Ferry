@@ -10,7 +10,7 @@ type Logger struct {
 }
 
 func NewLogger() Logger {
-	log := log.New(os.Stdout, "[FERRY]", log.LstdFlags|log.Lmicroseconds)
+	log := log.New(os.Stdout, "[FERRY]", log.LstdFlags)
 	return Logger{
 		log: log,
 	}

@@ -17,11 +17,6 @@ import (
 	"github.com/uddinArsalan/ferry/utils"
 	"github.com/uddinArsalan/ferry/watcher"
 	mapsync "github.com/uddinArsalan/ferry/worker/map_sync"
-	// mapsync "github.com/uddinArsalan/ferry/worker/map_sync"
-	// "github.com/uddinArsalan/ferry/peers"
-	// "github.com/uddinArsalan/ferry/tcp"
-	// "github.com/uddinArsalan/ferry/types"
-	// "github.com/uddinArsalan/ferry/watcher"
 )
 
 func main() {

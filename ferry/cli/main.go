@@ -60,61 +60,80 @@ func NewCli(
 	}
 }
 
+func toSlice(words string) []string {
+	w := strings.ToLower(words)
+	return strings.Fields(w)
+}
+
 func (c *Cli) TakeUserParams() {
-	flag.Parse()
-	switch flag.Arg(0) {
-	case "login":
-		c.login()
-	case "init":
-		c.initPeer()
-	case "start":
-		c.start()
-	case "refresh":
-		c.refresh()
-	case "invite":
-		switch flag.Arg(1) {
-		case "peer":
-			c.invitePeerToGroup()
-		case "accept":
-			c.acceptInvite()
-		case "reject":
-			c.rejectInvite()
+
+	for {
+
+		fmt.Printf("> ")
+		c.sc.Scan()
+		input := toSlice(c.sc.Text())
+
+		if len(input) == 0 {
+			continue
 		}
-	case "join":
-		switch flag.Arg(1) {
-		case "accept":
-			c.acceptJoin()
-		case "reject":
-			c.rejectJoin()
+
+		switch input[0] {
+		case "exit":
+			os.Exit(0)
+		case "login":
+			c.login()
+		case "init":
+			c.initPeer()
+		case "start":
+			c.start()
+		case "refresh":
+			c.refresh()
+		case "invite":
+			switch input[1] {
+			case "peer":
+				c.invitePeerToGroup()
+			case "accept":
+				c.acceptInvite()
+			case "reject":
+				c.rejectInvite()
+			}
+		case "join":
+			switch input[1] {
+			case "accept":
+				c.acceptJoin()
+			case "reject":
+				c.rejectJoin()
+			default:
+				c.sendJoinReqToGroup()
+			}
+		case "get":
+			switch input[1] {
+			case "pending":
+				switch input[2] {
+				case "invites":
+					c.getAllPendingInvites()
+				}
+			case "join-requests":
+				switch input[1] {
+				case "sent":
+					c.getAllJoinReqByPeer()
+				case "received":
+					c.getAllJoinReqForPeer()
+				}
+			}
+		case "create":
+			switch input[1] {
+			case "group":
+				c.createGroup()
+			}
+		case "help":
+			// will need to update
+			c.l.Printf("Use login to get started")
 		default:
-			c.sendJoinReqToGroup()
+			c.l.Printf("No params or invalid params provided")
 		}
-	case "get":
-		switch flag.Arg(1) {
-		case "pending":
-			switch flag.Arg(2) {
-			case "invites":
-				c.getAllPendingInvites()
-			}
-		case "join-requests":
-			switch flag.Arg(3) {
-			case "sent":
-				c.getAllJoinReqByPeer()
-			case "received":
-				c.getAllJoinReqForPeer()
-			}
-		}
-	case "create":
-		switch flag.Arg(1) {
-		case "group":
-			c.createGroup()
-		}
-	case "--help":
-		// will need to update
-		c.l.Printf("Use login to get started")
-	default:
-		c.l.Printf("No params or invalid params provided")
 	}
+
 }
 
 func (c *Cli) login() {
@@ -174,7 +193,7 @@ func (c *Cli) refresh() {
 	}
 	res, err := c.authClient.Refresh(c.ctx, refreshReq, authContext)
 	if err != nil {
-		c.l.Fatal("error in token refresh")
+		c.l.Fatalf("error in token refresh %v", err.Error())
 	}
 	c.l.Println("Tokens refreshed successfully...")
 	c.l.Println(utils.FormatAuthResults(res))
@@ -184,6 +203,7 @@ func (c *Cli) registerUser(loginReq *auth.LoginRequest) {
 	c.l.Println("Enter your name:")
 	c.sc.Scan()
 	name := c.sc.Text()
+
 	res, err := c.authClient.Register(c.ctx, &auth.RegisterRequest{
 		Email:    loginReq.Email,
 		Password: loginReq.Password,
@@ -241,7 +261,7 @@ func (c *Cli) createGroup() {
 		GroupId: groupID,
 		PeerId:  currPeerID,
 		Role:    group.PeerRole_OWNER,
-	})
+	}, authContext)
 
 	if err != nil {
 		c.l.Fatalf("error creating group, try after some time %v", err.Error())
@@ -275,6 +295,10 @@ func (c *Cli) createGroup() {
 }
 
 func (c *Cli) initPeer() {
+	authContext, err := AuthContext()
+	if err != nil {
+		c.l.Fatal("Unauthenticated request")
+	}
 	c.l.Println("Init peer creation")
 	peerID, err := utils.GetPeerId()
 	if err != nil {
@@ -283,7 +307,7 @@ func (c *Cli) initPeer() {
 	isPeerExists := true
 	_, err = c.peerClient.GetPeer(c.ctx, &peer.GetPeerRequest{
 		PeerId: peerID,
-	})
+	}, authContext)
 
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
@@ -301,12 +325,13 @@ func (c *Cli) initPeer() {
 			c.l.Println("some error occurred try after some time")
 			return
 		}
+
 		_, err = c.peerClient.RegisterPeer(c.ctx, &peer.RegisterPeerRequest{
 			Name:    name,
 			Address: address,
 			Port:    uint32(port),
 			PeerId:  peerID,
-		})
+		}, authContext)
 		if err != nil {
 			c.l.Println("some error occurred try after some time")
 			return
@@ -316,7 +341,7 @@ func (c *Cli) initPeer() {
 	} else {
 		peer, err := c.peerClient.GetPeer(c.ctx, &peer.GetPeerRequest{
 			PeerId: peerID,
-		})
+		}, authContext)
 		if err != nil {
 			c.l.Fatal("peer init failed")
 		}
@@ -326,6 +351,10 @@ func (c *Cli) initPeer() {
 }
 
 func (c *Cli) invitePeerToGroup() {
+	authContext, err := AuthContext()
+	if err != nil {
+		c.l.Fatal("Unauthenticated request")
+	}
 	peerID, groupID := flag.Arg(2), flag.Arg(3)
 
 	currPeerId, err := c.pm.GetPeerId()
@@ -340,14 +369,14 @@ func (c *Cli) invitePeerToGroup() {
 		c.l.Fatal("Error: group ID is required (usage: invite peer <peer_id> <group_id>)")
 	}
 
-	_, err = c.peerClient.GetPeer(c.ctx, &peer.GetPeerRequest{PeerId: peerID})
+	_, err = c.peerClient.GetPeer(c.ctx, &peer.GetPeerRequest{PeerId: peerID}, authContext)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			c.l.Fatal("peer not found")
 		}
 		c.l.Fatal("invalid peer id / error getting peer detail")
 	}
-	_, err = c.groupClient.GetGroup(c.ctx, &group.GetGroupRequest{GroupId: groupID})
+	_, err = c.groupClient.GetGroup(c.ctx, &group.GetGroupRequest{GroupId: groupID}, authContext)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			c.l.Fatal("group not found")
@@ -359,7 +388,7 @@ func (c *Cli) invitePeerToGroup() {
 	mem, err := c.groupClient.GetGroupPeerMembership(c.ctx, &group.GetGroupPeerMembershipRequest{
 		GroupId: groupID,
 		PeerId:  peerID,
-	})
+	}, authContext)
 
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
@@ -375,7 +404,7 @@ func (c *Cli) invitePeerToGroup() {
 	mem, err = c.groupClient.GetGroupPeerMembership(c.ctx, &group.GetGroupPeerMembershipRequest{
 		GroupId: groupID,
 		PeerId:  currPeerId,
-	})
+	}, authContext)
 	if err != nil {
 		c.l.Fatal("some error occurred try after some time")
 	}
@@ -388,7 +417,7 @@ func (c *Cli) invitePeerToGroup() {
 		SenderPeerId:    currPeerId,
 		RecipientPeerId: peerID,
 		Status:          group.INVITE_STATUS_PENDING,
-	})
+	}, authContext)
 	if err != nil {
 		c.l.Fatal("error creating group membership")
 	}
@@ -397,13 +426,17 @@ func (c *Cli) invitePeerToGroup() {
 
 // will give all pending invites for the current peer (by other peer group owners)
 func (c *Cli) getAllPendingInvites() {
+	authContext, err := AuthContext()
+	if err != nil {
+		c.l.Fatal("Unauthenticated request")
+	}
 	currPeerId, err := c.pm.GetPeerId()
 	if err != nil || currPeerId == "" {
 		c.l.Fatalf("unauthenticated or some problem with config")
 	}
 	pendingInvites, err := c.groupClient.GetAllPendingInvites(c.ctx, &group.GetAllPendingRequest{
 		PeerId: currPeerId,
-	})
+	}, authContext)
 	if err != nil {
 		c.l.Fatal("error getting pending invites for curr peer")
 	}
@@ -424,6 +457,10 @@ func (c *Cli) getAllPendingInvites() {
 // this peer is authorize to make decisions of each req
 // either accept or reject
 func (c *Cli) rejectInvite() {
+	authContext, err := AuthContext()
+	if err != nil {
+		c.l.Fatal("Unauthenticated request")
+	}
 	requestID := c.requestIDArg(2, "invite reject <request_id>")
 
 	req, err := c.groupClient.GetJoinRequest(c.ctx, &group.GetJoinReq{
@@ -438,13 +475,17 @@ func (c *Cli) rejectInvite() {
 	_, err = c.groupClient.UpdateJoinRequestStatus(c.ctx, &group.UpdateJoin{
 		RequestId: requestID,
 		Status:    group.INVITE_STATUS_REJECTED,
-	})
+	}, authContext)
 	if err != nil {
 		c.l.Fatalf("error rejecting invite with request id %v", requestID)
 	}
 }
 
 func (c *Cli) acceptInvite() {
+	authContext, err := AuthContext()
+	if err != nil {
+		c.l.Fatal("Unauthenticated request")
+	}
 	requestID := c.requestIDArg(2, "invite accept <request_id>")
 
 	req, err := c.groupClient.GetJoinRequest(c.ctx, &group.GetJoinReq{
@@ -456,7 +497,7 @@ func (c *Cli) acceptInvite() {
 	_, err = c.groupClient.UpdateJoinRequestStatus(c.ctx, &group.UpdateJoin{
 		RequestId: requestID,
 		Status:    group.INVITE_STATUS_ACCEPTED,
-	})
+	}, authContext)
 	if err != nil {
 		c.l.Fatalf("error accepting invite with request id %v", requestID)
 	}
@@ -488,6 +529,10 @@ func (c *Cli) acceptInvite() {
 // will give all pending join req send by a curr peer to peer group owners
 // across other groups to join in groups, only those peer owners can accept or reject
 func (c *Cli) getAllJoinReqByPeer() {
+	authContext, err := AuthContext()
+	if err != nil {
+		c.l.Fatal("Unauthenticated request")
+	}
 	currPeerID, err := c.pm.GetPeerId()
 	if err != nil || currPeerID == "" {
 		c.l.Fatalf("unauthenticated or some problem with config")
@@ -495,7 +540,7 @@ func (c *Cli) getAllJoinReqByPeer() {
 	// need to either do ferry start or run (need to decide)
 	pendingJoinReq, err := c.groupClient.GetAllPendingJoinRequestsBySender(c.ctx, &group.GetAllPendingRequest{
 		PeerId: currPeerID,
-	})
+	}, authContext)
 	if err != nil {
 		c.l.Fatal("error getting pending join requests send by this peer")
 	}
@@ -519,13 +564,17 @@ func (c *Cli) getAllJoinReqByPeer() {
 // will give all pending join req send by a peers for this
 // curr peer across all groups to join in a group
 func (c *Cli) getAllJoinReqForPeer() {
+	authContext, err := AuthContext()
+	if err != nil {
+		c.l.Fatal("Unauthenticated request")
+	}
 	currPeerID, err := c.pm.GetPeerId()
 	if err != nil || currPeerID == "" {
 		c.l.Fatalf("unauthenticated or some problem with config")
 	}
 	pendingJoinReq, err := c.groupClient.GetAllPendingJoinRequestsForOwner(c.ctx, &group.GetAllPendingRequest{
 		PeerId: currPeerID,
-	})
+	}, authContext)
 	if err != nil {
 		c.l.Fatal("error getting pending join requests for this peer")
 	}
@@ -547,6 +596,10 @@ func (c *Cli) getAllJoinReqForPeer() {
 }
 
 func (c *Cli) acceptJoin() {
+	authContext, err := AuthContext()
+	if err != nil {
+		c.l.Fatal("Unauthenticated request")
+	}
 	requestID := c.requestIDArg(2, "join accept <request_id>")
 
 	req, err := c.groupClient.GetJoinRequest(c.ctx, &group.GetJoinReq{
@@ -566,7 +619,7 @@ func (c *Cli) acceptJoin() {
 	_, err = c.groupClient.UpdateJoinRequestStatus(c.ctx, &group.UpdateJoin{
 		RequestId: requestID,
 		Status:    group.INVITE_STATUS_ACCEPTED,
-	})
+	}, authContext)
 
 	if err != nil {
 		c.l.Fatalf("error accepting join with request id %v", requestID)
@@ -597,6 +650,10 @@ func (c *Cli) acceptJoin() {
 }
 
 func (c *Cli) rejectJoin() {
+	authContext, err := AuthContext()
+	if err != nil {
+		c.l.Fatal("Unauthenticated request")
+	}
 	requestID := c.requestIDArg(2, "join reject <request_id>")
 
 	req, err := c.groupClient.GetJoinRequest(c.ctx, &group.GetJoinReq{
@@ -611,13 +668,17 @@ func (c *Cli) rejectJoin() {
 	_, err = c.groupClient.UpdateJoinRequestStatus(c.ctx, &group.UpdateJoin{
 		RequestId: requestID,
 		Status:    group.INVITE_STATUS_REJECTED,
-	})
+	}, authContext)
 	if err != nil {
 		c.l.Fatalf("error rejecting invite with request id %v", requestID)
 	}
 }
 
 func (c *Cli) sendJoinReqToGroup() {
+	authContext, err := AuthContext()
+	if err != nil {
+		c.l.Fatal("Unauthenticated request")
+	}
 	groupID := flag.Arg(1)
 
 	if groupID == "" {
@@ -629,7 +690,7 @@ func (c *Cli) sendJoinReqToGroup() {
 		c.l.Fatalf("unauthenticated or some problem with config")
 	}
 
-	_, err = c.groupClient.GetGroup(c.ctx, &group.GetGroupRequest{GroupId: groupID})
+	_, err = c.groupClient.GetGroup(c.ctx, &group.GetGroupRequest{GroupId: groupID}, authContext)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			c.l.Fatal("group not found")
@@ -642,7 +703,7 @@ func (c *Cli) sendJoinReqToGroup() {
 	_, err = c.groupClient.GetGroupPeerMembership(c.ctx, &group.GetGroupPeerMembershipRequest{
 		GroupId: groupID,
 		PeerId:  currPeerID,
-	})
+	}, authContext)
 
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
@@ -658,7 +719,7 @@ func (c *Cli) sendJoinReqToGroup() {
 
 	peerID, err := c.groupClient.GetGroupOwnerPeerID(c.ctx, &group.GetGroupRequest{
 		GroupId: groupID,
-	})
+	}, authContext)
 
 	if err != nil {
 		c.l.Fatal("error contacting group owner")
@@ -670,7 +731,7 @@ func (c *Cli) sendJoinReqToGroup() {
 		SenderPeerId:    currPeerID,
 		RecipientPeerId: peerID.PeerId,
 		Status:          group.INVITE_STATUS_PENDING,
-	})
+	}, authContext)
 	if err != nil {
 		c.l.Fatal("error creating group membership")
 	}

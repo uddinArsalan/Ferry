@@ -2,11 +2,13 @@ package mapsync
 
 import (
 	"context"
+	"errors"
 	"log"
 	"time"
 
 	"github.com/uddinArsalan/ferry-proto/group"
 	"github.com/uddinArsalan/ferry-proto/peer"
+	"github.com/uddinArsalan/ferry/cli"
 	"github.com/uddinArsalan/ferry/config"
 	"github.com/uddinArsalan/ferry/peers"
 	"github.com/uddinArsalan/ferry/types"
@@ -64,13 +66,16 @@ func (ms MapSyncWorker) Run() {
 func (ms MapSyncWorker) refresh() error {
 	currPeerID, err := ms.pm.GetPeerId()
 	if err != nil || currPeerID == "" {
-		ms.l.Fatalf("unauthenticated or some problem with config")
+		return errors.New("unauthenticated or some problem with config")
+	}
+	authContext, err := cli.AuthContext()
+	if err != nil {
+		return errors.New("Unauthenticated request")
 	}
 	g, err := ms.groupClient.GetPeerSyncSnapshot(ms.ctx, &peer.GetPeerRequest{
 		PeerId: currPeerID,
-	})
+	}, authContext)
 	if err != nil {
-		ms.l.Printf("Error: %v", err.Error())
 		return err
 	}
 	// update peer -> groups config
