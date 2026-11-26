@@ -38,13 +38,13 @@ func NewMapSyncer(
 	}
 }
 
-var MAX_RETRY = 3
-
 // after a defined interval update local configurations
 func (ms MapSyncWorker) Run() {
 	go func() {
 		defer ms.ticker.Stop()
-		errCnt := 0
+		if err := ms.refresh(); err != nil {
+			ms.l.Printf("error refreshing config: %v", err)
+		}
 		for {
 			select {
 			case <-ms.ctx.Done():
@@ -52,11 +52,7 @@ func (ms MapSyncWorker) Run() {
 			case <-ms.ticker.C:
 				err := ms.refresh()
 				if err != nil {
-					errCnt++
-					log.Printf("error refreshing config %v", err)
-					if errCnt > MAX_RETRY {
-						return
-					}
+					ms.l.Printf("error refreshing config: %v", err)
 				}
 			}
 		}
@@ -106,6 +102,10 @@ func (ms MapSyncWorker) updateGroups(groups *group.SnapshotResponse) error {
 	if err != nil {
 		return err
 	}
+	localPeerID, err := ms.pm.GetPeerId()
+	if err != nil {
+		return err
+	}
 	localGroups := make(map[string]*types.SyncGroup)
 	for _, group := range groups.Groups {
 		localGroups[group.GroupId] = &types.SyncGroup{
@@ -114,6 +114,10 @@ func (ms MapSyncWorker) updateGroups(groups *group.SnapshotResponse) error {
 			Peers:   make(map[string]types.PeerLocal),
 		}
 		for _, peer := range group.Peer {
+			localDir := ""
+			if peer.PeerId == localPeerID {
+				localDir = localDirs[group.GroupId]
+			}
 			localGroups[group.GroupId].Peers[peer.PeerId] = types.PeerLocal{
 				Peer: types.Peer{
 					ID:        peer.PeerId,
@@ -123,7 +127,7 @@ func (ms MapSyncWorker) updateGroups(groups *group.SnapshotResponse) error {
 					LastSeen:  peer.LastSeen.AsTime(),
 					Connected: false,
 				},
-				DirPath: localDirs[group.GroupId],
+				DirPath: localDir,
 			}
 		}
 	}

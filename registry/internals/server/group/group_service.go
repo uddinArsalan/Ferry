@@ -9,6 +9,7 @@ import (
 	"github.com/uddinArsalan/ferry-registry/interceptor"
 	"github.com/uddinArsalan/ferry-registry/internals/domain"
 	"github.com/uddinArsalan/ferry-registry/internals/repository"
+	auth_service "github.com/uddinArsalan/ferry-registry/internals/server/auth"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -29,7 +30,11 @@ func NewGroupServer(groupRepo *repository.GroupRepository) *GroupServer {
 }
 
 func (g *GroupServer) CreateGroup(ctx context.Context, req *gengroup.CreateGroupRequest) (*gengroup.GroupID, error) {
-	groupID, err := g.groupRepo.CreateGroup(ctx, req.GroupId, req.Name)
+	userID, ok := interceptor.GetUserIDFromContext(ctx)
+	if !ok {
+		return nil, auth_service.ErrUnauthenticated
+	}
+	groupID, err := g.groupRepo.CreateGroup(ctx, req.GroupId, req.Name, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +46,7 @@ func (g *GroupServer) CreateGroup(ctx context.Context, req *gengroup.CreateGroup
 func (g *GroupServer) GetGroupsForPeer(ctx context.Context, req *genpeer.GetPeerRequest) (*gengroup.Groups, error) {
 	groups, err := g.groupRepo.GetGroupsForPeer(ctx, req.PeerId)
 	if err != nil {
-		log.Printf("Error retrieving groups for peer %d: %v", req.PeerId, err)
+		log.Printf("Error retrieving groups for peer %v: %v", req.PeerId, err)
 		return nil, err
 	}
 	var groupList []*gengroup.Group

@@ -110,25 +110,19 @@ func (p *PeerManager) UpdateGroups(groups map[string]*types.SyncGroup) {
 	p.mu.Unlock()
 }
 
-func (p *PeerManager) AddPeerToGroup(peer types.Peer, groupID, localDir string) error {
-	// _, ok := p.GetPeerDetail(peerId)
-	// if !ok {
-	// 	return ErrPeerNotFound
-	// }
-	group, ok := p.GetGroup(groupID)
+func (p *PeerManager) AddPeerToGroup(peerID string, groupID, localDir string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	group, ok := p.groups[groupID]
 	if !ok {
 		return ErrGrpNotFound
 	}
-	p.mu.Lock()
+	peer, ok := p.peers[peerID]
+	if !ok {
+		return ErrPeerNotFound
+	}
 	group.Peers[peer.ID] = types.PeerLocal{
-		Peer: types.Peer{
-			ID:        peer.ID,
-			Name:      peer.Name,
-			Address:   peer.Address,
-			Port:      peer.Port,
-			LastSeen:  peer.LastSeen,
-			Connected: false,
-		},
+		Peer:    *peer,
 		DirPath: localDir,
 	}
 	_, ok = p.peersGroupMap[peer.ID]
@@ -136,7 +130,24 @@ func (p *PeerManager) AddPeerToGroup(peer types.Peer, groupID, localDir string) 
 		p.peersGroupMap[peer.ID] = map[string]struct{}{}
 	}
 	p.peersGroupMap[peer.ID][groupID] = struct{}{}
-	p.mu.Unlock()
+	return nil
+}
+
+// UpdateGroupPeerConfig sets the local directory for this peer in an already
+// synchronized group snapshot.
+func (p *PeerManager) UpdateGroupPeerConfig(groupID string, localDir string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	syncGroup, ok := p.groups[groupID]
+	if !ok {
+		return ErrGrpNotFound
+	}
+	localPeer, ok := syncGroup.Peers[p.currPeerId]
+	if !ok {
+		return ErrPeerNotFound
+	}
+	localPeer.DirPath = localDir
+	syncGroup.Peers[p.currPeerId] = localPeer
 	return nil
 }
 
@@ -150,22 +161,6 @@ func (p *PeerManager) AddGroup(groupID, name string) {
 	p.mu.Unlock()
 }
 
-func (p *PeerManager) UpdateGroupPeerConfig(groupID string, localDir string) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	syncGroup, ok := p.groups[groupID]
-	if !ok {
-		return ErrGrpNotFound
-	}
-	peer, ok := syncGroup.Peers[p.currPeerId]
-	if !ok {
-		return ErrPeerNotFound
-	}
-	peer.DirPath = localDir
-	syncGroup.Peers[p.currPeerId] = peer
-	return nil
-}
-
 func (p *PeerManager) RemovePeerFromAllGroups(peerId string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -174,8 +169,8 @@ func (p *PeerManager) RemovePeerFromAllGroups(peerId string) {
 		if ok {
 			delete(p.groups[groupID].Peers, peerId)
 		}
-		p.peersGroupMap[peerId] = map[string]struct{}{}
 	}
+	delete(p.peersGroupMap, peerId)
 }
 
 func (p *PeerManager) RemovePeerFromGroup(peerId string, groupID string) error {

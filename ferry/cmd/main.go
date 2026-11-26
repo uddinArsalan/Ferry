@@ -11,6 +11,8 @@ import (
 
 	"github.com/uddinArsalan/ferry/cli"
 	"github.com/uddinArsalan/ferry/client"
+	"github.com/uddinArsalan/ferry/logger/ferry_logger"
+	"github.com/uddinArsalan/ferry/logger/file_logger"
 	"github.com/uddinArsalan/ferry/peers"
 	"github.com/uddinArsalan/ferry/tcp"
 	"github.com/uddinArsalan/ferry/types"
@@ -29,7 +31,14 @@ func main() {
 	groupClient := g.NewGroupClient()
 	peerClient := g.NewPeerClient()
 	pm := peers.NewPeerManager()
-	logger := cli.NewLogger()
+	ferryLogger := ferry_logger.NewFerryLogger()
+
+	fileLogger, err := file_logger.NewFileLogger()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer fileLogger.Close()
 
 	ctx, stop := signal.NotifyContext(
 		context.Background(),
@@ -39,7 +48,7 @@ func main() {
 	defer stop()
 
 	// syncer of local maps and configuration
-	mapSyncer := mapsync.NewMapSyncer(ctx, logger.GetLogger(), pm, groupClient, 30)
+	mapSyncer := mapsync.NewMapSyncer(ctx, fileLogger.GetLogger(), pm, groupClient, 30)
 	mapSyncer.Run()
 
 	// node initialisation
@@ -57,14 +66,14 @@ func main() {
 	}
 
 	// creating new node
-	node, err := tcp.NewNode(ctx, privKey, pm, eventChan, 20)
+	node, err := tcp.NewNode(ctx, privKey, pm, eventChan, 20, fileLogger.GetLogger())
 
 	if err != nil {
 		log.Fatal(err)
 	}
 	node.Start()
 
-	cli := cli.NewCli(ctx, logger.GetLogger(), authClient, groupClient, peerClient, pm, node, watcher)
+	cli := cli.NewCli(ctx, ferryLogger.GetLogger(), authClient, groupClient, peerClient, pm, node, watcher)
 	cli.TakeUserParams()
 
 	<-ctx.Done()

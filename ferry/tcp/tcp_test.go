@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/uddinArsalan/ferry/logger/file_logger"
 	"github.com/uddinArsalan/ferry/peers"
 	"github.com/uddinArsalan/ferry/tcp"
 	"github.com/uddinArsalan/ferry/types"
@@ -40,8 +41,12 @@ func TestNode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	fileLogger, err := file_logger.NewFileLogger()
+	if err != nil {
+		t.Fatal(err)
+	}
 	eventChan := make(chan types.Event)
-	node, err := tcp.NewNode(context.Background(), privKey, pm, eventChan, 10)
+	node, err := tcp.NewNode(context.Background(), privKey, pm, eventChan, 10, fileLogger.GetLogger())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,9 +93,13 @@ func TestNodeInit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	fileLogger, err := file_logger.NewFileLogger()
+	if err != nil {
+		t.Fatal(err)
+	}
 	pm := peers.NewPeerManager()
 	eventChan := make(chan types.Event)
-	node, err := tcp.NewNode(context.Background(), privKeyA, pm, eventChan, 10)
+	node, err := tcp.NewNode(context.Background(), privKeyA, pm, eventChan, 10, fileLogger.GetLogger())
 	if err != nil {
 		t.Fatal(err)
 	}

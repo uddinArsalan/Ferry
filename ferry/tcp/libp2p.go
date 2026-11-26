@@ -28,13 +28,14 @@ type Node struct {
 	pm        *peers.PeerManager
 	eventChan chan types.Event
 	ticker    *time.Ticker
+	log       *log.Logger
 }
 
 var (
 	syncID = protocol.ID("/ferry/sync/1.0.0")
 )
 
-func NewNode(ctx context.Context, privKey crypto.PrivKey, pm *peers.PeerManager, eventChan chan types.Event, interval int) (*Node, error) {
+func NewNode(ctx context.Context, privKey crypto.PrivKey, pm *peers.PeerManager, eventChan chan types.Event, interval int, log *log.Logger) (*Node, error) {
 	connmgr, err := connmgr.NewConnManager(
 		100,
 		400,
@@ -56,7 +57,7 @@ func NewNode(ctx context.Context, privKey crypto.PrivKey, pm *peers.PeerManager,
 	}
 
 	node.SetStreamHandler(syncID, handleStream)
-	return &Node{ctx: ctx, node: node, pm: pm, eventChan: eventChan, ticker: time.NewTicker(time.Duration(interval) * time.Second)}, nil
+	return &Node{ctx: ctx, node: node, pm: pm, eventChan: eventChan, ticker: time.NewTicker(time.Duration(interval) * time.Second), log: log}, nil
 }
 
 func (n *Node) Close() error {
@@ -122,13 +123,13 @@ func (n *Node) ConnectToPeers(peersToConnect []types.PeerLocal) {
 	for _, p := range peersToConnect {
 		_, err := n.pm.GetPeersConn(p.Peer.ID)
 		if err != nil {
-			log.Printf("connection already exists with this peer")
+			n.log.Printf("connection already exists with this peer")
 			continue
 		}
 		peerAddr := fmt.Sprintf("/ip4/%s/tcp/%d/p2p/%s", p.Peer.Address, p.Peer.Port, p.Peer.ID)
 		peerInfo, err := peer.AddrInfoFromString(peerAddr)
 		if err != nil {
-			log.Printf("Error creating peer info: %v", err)
+			n.log.Printf("Error creating peer info: %v", err)
 			continue
 		}
 		n.node.Peerstore().AddAddrs(
@@ -139,7 +140,7 @@ func (n *Node) ConnectToPeers(peersToConnect []types.PeerLocal) {
 
 		s, err := n.node.NewStream(context.Background(), peerInfo.ID, syncID)
 		if err != nil {
-			log.Printf("Error connecting to peer: %v", err)
+			n.log.Printf("Error connecting to peer: %v", err)
 			continue
 		}
 		log.Printf("Established connection to %v", p.Peer.Name)

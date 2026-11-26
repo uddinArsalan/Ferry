@@ -35,8 +35,6 @@ func (w *Watcher) WatchFile(dirPath string, groupID string) {
 		}
 	}()
 
-	log.Printf("DIR : %v", dirs)
-
 	for dir := range dirs {
 		if err := w.watcher.Add(dir); err != nil {
 			log.Printf("Error in adding directory %v: %v", dir, err)
