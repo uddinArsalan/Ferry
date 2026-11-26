@@ -15,12 +15,11 @@ func NewGroupRepository(db *sql.DB) *GroupRepository {
 	return &GroupRepository{db: db}
 }
 
-func (r *GroupRepository) CreateGroup(ctx context.Context, localGroupID, name string) (int64, error) {
-	query := `INSERT INTO groups (name,group_id) VALUES ($1,$2) RETURNING id`
+func (r *GroupRepository) CreateGroup(ctx context.Context, localGroupID, name string, userID int64) (int64, error) {
+	query := `INSERT INTO groups (name,group_id,user_id) VALUES ($1,$2,$3) RETURNING id`
 	// this represent db table pk
 	var groupID int64
-	row := r.db.QueryRowContext(ctx, query, name, localGroupID)
-	if err := row.Scan(&groupID); err != nil {
+	if err := r.db.QueryRowContext(ctx, query, name, localGroupID, userID).Scan(&groupID); err != nil {
 		return -1, err
 	}
 	return groupID, nil
@@ -190,13 +189,13 @@ func (r *GroupRepository) GetJoinRequest(
     SELECT
         m.id AS request_id,
         g.group_id AS group_id,
-        g.group_name AS group_name,
+        g.name AS group_name,
         sender.peer_id AS sender_peer_id,
         sender.name AS sender_peer_name,
         recipient.peer_id AS recipient_peer_id,
         recipient.name AS recipient_peer_name,
-        m.request_type AS join_type,
-        m.request_status AS join_status,
+        m.type AS join_type,
+        m.status AS join_status,
         m.created_at AS created_at
     FROM membership_requests m
     JOIN peers sender ON sender.id = m.sender_peer_id
@@ -243,13 +242,13 @@ func (r *GroupRepository) GetAllPendingInvites(
 	SELECT
         m.id AS request_id,
         g.group_id AS group_id,
-        g.group_name AS group_name,
+        g.name AS group_name,
         sender.peer_id AS sender_peer_id,
         sender.name AS sender_peer_name,
         recipient.peer_id AS recipient_peer_id,
         recipient.name AS recipient_peer_name,
-        m.request_type AS join_type,
-        m.request_status AS join_status,
+        m.type AS join_type,
+        m.status AS join_status,
         m.created_at AS created_at
     FROM membership_requests m
     JOIN peers sender ON sender.id = m.sender_peer_id
@@ -257,9 +256,9 @@ func (r *GroupRepository) GetAllPendingInvites(
     JOIN groups g ON g.id = m.group_id
     WHERE recipient.peer_id = $1
 		AND 
-		  m.request_status = $2
+		  m.status = $2
 		    AND 
-			  m.request_type = $3
+			  m.type = $3
 			`
 	rows, err := r.db.QueryContext(
 		ctx,
@@ -301,13 +300,13 @@ func (r *GroupRepository) GetGroupPendingInvite(
 	SELECT
         m.id AS request_id,
         g.group_id AS group_id,
-        g.group_name AS group_name,
+        g.name AS group_name,
         sender.peer_id AS sender_peer_id,
         sender.name AS sender_peer_name,
         recipient.peer_id AS recipient_peer_id,
         recipient.name AS recipient_peer_name,
-        m.request_type AS join_type,
-        m.request_status AS join_status,
+        m.type AS join_type,
+        m.status AS join_status,
         m.created_at AS created_at
     FROM membership_requests m
     JOIN peers sender ON sender.id = m.sender_peer_id
@@ -317,9 +316,9 @@ func (r *GroupRepository) GetGroupPendingInvite(
 			AND
 			g.group_id = $2
 			AND 
-		 	m.request_status = $2
+			m.status = $3
 		    AND 
-			m.request_type = $3	
+			m.type = $4
 			`
 	var groupPendingRequest domain.JoinRequest
 	row := r.db.QueryRowContext(
@@ -351,13 +350,13 @@ func (r *GroupRepository) GetAllPendingJoinRequestsBySender(
 	SELECT
         m.id AS request_id,
         g.group_id AS group_id,
-        g.group_name AS group_name,
+        g.name AS group_name,
         sender.peer_id AS sender_peer_id,
         sender.name AS sender_peer_name,
         recipient.peer_id AS recipient_peer_id,
         recipient.name AS recipient_peer_name,
-        m.request_type AS join_type,
-        m.request_status AS join_status,
+        m.type AS join_type,
+        m.status AS join_status,
         m.created_at AS created_at
     FROM membership_requests m
     JOIN peers sender ON sender.id = m.sender_peer_id
@@ -365,9 +364,9 @@ func (r *GroupRepository) GetAllPendingJoinRequestsBySender(
     JOIN groups g ON g.id = m.group_id
     WHERE sender.peer_id = $1
 		AND 
-		  m.request_status = $2
+		  m.status = $2
 		    AND 
-			  m.request_type = $3
+			  m.type = $3
 			`
 	rows, err := r.db.QueryContext(
 		ctx,
@@ -411,13 +410,13 @@ func (r *GroupRepository) GetAllPendingJoinRequestsForOwner(
 	SELECT
         m.id AS request_id,
         g.group_id AS group_id,
-        g.group_name AS group_name,
+        g.name AS group_name,
         sender.peer_id AS sender_peer_id,
         sender.name AS sender_peer_name,
         recipient.peer_id AS recipient_peer_id,
         recipient.name AS recipient_peer_name,
-        m.request_type AS join_type,
-        m.request_status AS join_status,
+        m.type AS join_type,
+        m.status AS join_status,
         m.created_at AS created_at
     FROM membership_requests m
     JOIN peers sender ON sender.id = m.sender_peer_id
@@ -425,9 +424,9 @@ func (r *GroupRepository) GetAllPendingJoinRequestsForOwner(
     JOIN groups g ON g.id = m.group_id
     WHERE recipient.peer_id = $1
 		AND 
-		  m.request_status = $2
+		  m.status = $2
 		    AND 
-			  m.request_type = $3
+			  m.type = $3
 			`
 	rows, err := r.db.QueryContext(
 		ctx,
@@ -473,13 +472,13 @@ func (r *GroupRepository) GetGroupPendingJoinRequestsForOwner(
 	SELECT
         m.id AS request_id,
         g.group_id AS group_id,
-        g.group_name AS group_name,
+        g.name AS group_name,
         sender.peer_id AS sender_peer_id,
         sender.name AS sender_peer_name,
         recipient.peer_id AS recipient_peer_id,
         recipient.name AS recipient_peer_name,
-        m.request_type AS join_type,
-        m.request_status AS join_status,
+        m.type AS join_type,
+        m.status AS join_status,
         m.created_at AS created_at
     FROM membership_requests m
     JOIN peers sender ON sender.id = m.sender_peer_id
@@ -488,9 +487,9 @@ func (r *GroupRepository) GetGroupPendingJoinRequestsForOwner(
     WHERE recipient.peer_id = $1
 		AND g.group_id = $2
 			AND 
-		  m.request_status = $2
+		  m.status = $3
 		    AND 
-			  m.request_type = $3
+			  m.type = $4
 			`
 	rows, err := r.db.QueryContext(
 		ctx,
@@ -535,13 +534,13 @@ func (r *GroupRepository) GetGroupPendingJoinRequestsBySender(
 	SELECT
         m.id AS request_id,
         g.group_id AS group_id,
-        g.group_name AS group_name,
+        g.name AS group_name,
         sender.peer_id AS sender_peer_id,
         sender.name AS sender_peer_name,
         recipient.peer_id AS recipient_peer_id,
         recipient.name AS recipient_peer_name,
-        m.request_type AS join_type,
-        m.request_status AS join_status,
+        m.type AS join_type,
+        m.status AS join_status,
         m.created_at AS created_at
     FROM membership_requests m
     JOIN peers sender ON sender.id = m.sender_peer_id
@@ -551,9 +550,9 @@ func (r *GroupRepository) GetGroupPendingJoinRequestsBySender(
 			AND
 			g.group_id = $2
 			AND 
-		 	m.request_status = $2
+			m.status = $3
 		    AND 
-			m.request_type = $3	
+			m.type = $4
 			`
 	var groupPendingRequest domain.JoinRequest
 	row := r.db.QueryRowContext(

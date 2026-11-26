@@ -18,7 +18,7 @@ func NewPeerRepository(db *sql.DB) *PeerRepository {
 }
 
 func (r *PeerRepository) CreatePeer(ctx context.Context, userID int64, localPeerID, name string, port uint32, address string) (int64, error) {
-	query := `INSERT INTO peers (user_id,peer_id, name, port, address) VALUES ($1, $2, $3, $4) RETURNING id`
+	query := `INSERT INTO peers (user_id,peer_id, name, port, address) VALUES ($1, $2, $3, $4,$5) RETURNING id`
 	var peerID int64
 	row := r.db.QueryRowContext(ctx, query, userID, localPeerID, name, port, address)
 	if err := row.Scan(&peerID); err != nil {

@@ -5,69 +5,81 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/uddinArsalan/ferry/cli"
 	"github.com/uddinArsalan/ferry/client"
+	"github.com/uddinArsalan/ferry/logger/ferry_logger"
+	"github.com/uddinArsalan/ferry/logger/file_logger"
 	"github.com/uddinArsalan/ferry/peers"
 	"github.com/uddinArsalan/ferry/tcp"
-	// mapsync "github.com/uddinArsalan/ferry/worker/map_sync"
-	// "github.com/uddinArsalan/ferry/peers"
-	// "github.com/uddinArsalan/ferry/tcp"
-	// "github.com/uddinArsalan/ferry/types"
-	// "github.com/uddinArsalan/ferry/watcher"
+	"github.com/uddinArsalan/ferry/types"
+	"github.com/uddinArsalan/ferry/utils"
+	"github.com/uddinArsalan/ferry/watcher"
+	mapsync "github.com/uddinArsalan/ferry/worker/map_sync"
 )
 
 func main() {
 	serverAddr := fmt.Sprintf("127.0.0.1:%d", 5051)
 	g, err := client.NewGRPCClient(serverAddr)
 	if err != nil {
-		log.Fatalf("error initialising grpc client conn")
+		log.Fatalf("error initialising grpc client conn %v", err)
 	}
-
 	authClient := g.NewAuthClient()
 	groupClient := g.NewGroupClient()
 	peerClient := g.NewPeerClient()
 	pm := peers.NewPeerManager()
+	ferryLogger := ferry_logger.NewFerryLogger()
 
-	listenerAddr := fmt.Sprintf("127.0.0.1:%d", 9000)
-	server := tcp.NewServer(listenerAddr, pm)
+	fileLogger, err := file_logger.NewFileLogger()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	defer cancel()
+	defer fileLogger.Close()
 
-	logger := cli.NewLogger()
+	ctx, stop := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
+	defer stop()
 
-	// mapSyncer := mapsync.NewMapSyncer(ctx, logger.GetLogger(), pm, groupClient, 30)
+	// syncer of local maps and configuration
+	mapSyncer := mapsync.NewMapSyncer(ctx, fileLogger.GetLogger(), pm, groupClient, 30)
+	mapSyncer.Run()
 
-	cli := cli.NewCli(ctx, logger.GetLogger(), authClient, groupClient, peerClient, pm, server)
-	cli.TakeUerParams()
-	// below code will update
-	// pm := peers.NewPeerManager()
+	// node initialisation
+	// initialise priv key
+	privKey, err := utils.GetPrivKey()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	// var dir string
-	// // var grpId string
-	// flag.StringVar(&dir, "dir", "", "directory to watch")
-	// // flag.StringVar(&grpId,"grpId","","sync group to add this peer")
-	// flag.Parse()
+	eventChan := make(chan types.Event)
 
-	// w, err := watcher.NewWatcher()
-	// if err != nil {
-	// 	log.Printf("Error in creating watcher")
-	// 	return
-	// }
+	watcher, err := watcher.NewWatcher(eventChan)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	// eventChan := make(chan types.Event, 10)
+	// creating new node
+	node, err := tcp.NewNode(ctx, privKey, pm, eventChan, 20, fileLogger.GetLogger())
 
-	// w.WatchFile(dir, eventChan)
+	if err != nil {
+		log.Fatal(err)
+	}
+	node.Start()
 
-	// server := tcp.NewServer(":3000", pm)
+	cli := cli.NewCli(ctx, ferryLogger.GetLogger(), authClient, groupClient, peerClient, pm, node, watcher)
+	cli.TakeUserParams()
 
-	// go server.Start()
+	<-ctx.Done()
 
-	// go server.ConnectToPeers()
-
-	// go pm.SendToAllPeersOfGroup(eventChan)
-
-	// <-make(chan struct{})
+	err = node.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
 }

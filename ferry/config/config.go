@@ -42,6 +42,9 @@ func GetLocalDirs() (map[string]string, error) {
 	configDir := filepath.Join(home, ".ferry", "config", "group")
 	files, err := os.ReadDir(configDir)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return localDirMap, nil
+		}
 		return nil, err
 	}
 	for _, file := range files {
