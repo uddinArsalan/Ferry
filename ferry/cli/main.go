@@ -592,20 +592,33 @@ func (c *Cli) rejectInvite() {
 		c.reportError("reject invitation: get authentication", err)
 		return
 	}
+	// it is possible user provided request id of some other then for this request Id
+	// whether current peer is authorised to make decision or not
 	requestID, ok := c.requestIDArg(2, "invite reject <request_id>")
 	if !ok {
 		return
 	}
 
+	currPeerID, err := c.pm.GetPeerId()
+	if err != nil {
+		c.reportError("reject invitation: get local peer ID", err)
+		return
+	}
+
 	req, err := c.groupClient.GetJoinRequest(c.ctx, &group.GetJoinReq{
 		RequestId: requestID,
-	})
+	}, authContext)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			c.l.Println("Invitation request not found.")
 		} else {
 			c.reportError("reject invitation: get request", err)
 		}
+		return
+	}
+	// so here we check whether this req (invite) ,if not meant for curr peer
+	if req.RecipientPeerId != currPeerID {
+		c.l.Println("invalid request id")
 		return
 	}
 	if req.Type == group.JoinType_JOIN_REQUEST {
@@ -622,6 +635,11 @@ func (c *Cli) rejectInvite() {
 	}
 }
 
+// we can return err in each cli commands,
+// report we will error always so we can check in log
+//  but a particular common error we can show that is user specific and useful
+//  only to users in cli
+
 func (c *Cli) acceptInvite() {
 	authContext, err := AuthContext()
 	if err != nil {
@@ -633,15 +651,26 @@ func (c *Cli) acceptInvite() {
 		return
 	}
 
+	currPeerID, err := c.pm.GetPeerId()
+	if err != nil {
+		c.reportError("accept invitation: get local peer ID", err)
+		return
+	}
+
 	req, err := c.groupClient.GetJoinRequest(c.ctx, &group.GetJoinReq{
 		RequestId: requestID,
-	})
+	}, authContext)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			c.l.Println("Invitation request not found.")
 		} else {
 			c.reportError("accept invitation: get request", err)
 		}
+		return
+	}
+	// so here we check whether this req (invite) ,if not meant for curr peer
+	if req.RecipientPeerId != currPeerID {
+		c.l.Println("invalid request id")
 		return
 	}
 	localDir, err := c.readInput("Enter the local directory to sync:")
@@ -663,6 +692,19 @@ func (c *Cli) acceptInvite() {
 		return
 	}
 
+	// since this peer accepted a request now its a part of the group
+	// so we need to create membership
+	_, err = c.groupClient.CreateGroupPeerMembership(c.ctx, &group.CreateGroupPeerMembershipRequest{
+		GroupId: req.GroupId,
+		PeerId:  req.RecipientPeerId,
+		Role:    group.PeerRole_MEMBER,
+	}, authContext)
+
+	if err != nil {
+		c.reportError("accept invitation : create membership", err)
+		return
+	}
+
 	// need to persist (grpid,local_dir) so if client disconnects and connect again
 	err = config.SaveLocalDir(config.LocalDirConfig{
 		GroupID:  req.GroupId,
@@ -673,12 +715,6 @@ func (c *Cli) acceptInvite() {
 		return
 	}
 	c.pm.AddGroup(req.GroupId, req.GroupName)
-
-	currPeerID, err := c.pm.GetPeerId()
-	if err != nil {
-		c.reportError("accept invitation: get local peer ID", err)
-		return
-	}
 
 	if err = c.pm.AddPeerToGroup(currPeerID, req.GroupId, localDir); err != nil {
 		c.reportError("accept invitation: add local peer to group", err)
@@ -770,6 +806,10 @@ func (c *Cli) getAllJoinReqForPeer() {
 	}
 }
 
+// join request will be send by a curr peer(sender) to a group admin or owner(recipient)
+// to join in a group once accepted it will be a part of group
+// since accept can only be done by a group admin/owner we have to explicity check
+// if curr peer is authorised to accept (means owner or admin)
 func (c *Cli) acceptJoin() {
 	authContext, err := AuthContext()
 	if err != nil {
@@ -783,7 +823,7 @@ func (c *Cli) acceptJoin() {
 
 	req, err := c.groupClient.GetJoinRequest(c.ctx, &group.GetJoinReq{
 		RequestId: requestID,
-	})
+	}, authContext)
 
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
@@ -796,6 +836,26 @@ func (c *Cli) acceptJoin() {
 
 	if req.Type == group.JoinType_INVITE {
 		c.l.Println("That request is an invitation, not a join request.")
+		return
+	}
+
+	currPeerID, err := c.pm.GetPeerId()
+	if err != nil {
+		c.reportError("accept join request: get local peer ID", err)
+		return
+	}
+
+	mem, err := c.groupClient.GetGroupPeerMembership(c.ctx, &group.GetGroupPeerMembershipRequest{
+		GroupId: req.GroupId,
+		PeerId:  currPeerID,
+	}, authContext)
+
+	if err != nil {
+		c.reportError("invite peer: check local membership", err)
+		return
+	}
+	if mem.Role == group.PeerRole_MEMBER {
+		c.l.Println("the current peer is not authorized to perform this.")
 		return
 	}
 
@@ -821,6 +881,20 @@ func (c *Cli) acceptJoin() {
 		return
 	}
 
+	// now make the sender peer part of a group
+	// since we group owner/admin accepted a request now we have to make the sender peer
+	// part of the group
+	_, err = c.groupClient.CreateGroupPeerMembership(c.ctx, &group.CreateGroupPeerMembershipRequest{
+		GroupId: req.GroupId,
+		PeerId:  req.SenderPeerId,
+		Role:    group.PeerRole_MEMBER,
+	}, authContext)
+
+	if err != nil {
+		c.reportError("accept join : create membership", err)
+		return
+	}
+
 	// need to persist (grpid,local_dir) so if client disconnects and connect again
 	err = config.SaveLocalDir(config.LocalDirConfig{
 		GroupID:  req.GroupId,
@@ -831,11 +905,7 @@ func (c *Cli) acceptJoin() {
 		return
 	}
 	c.pm.AddGroup(req.GroupId, req.GroupName)
-	currPeerID, err := c.pm.GetPeerId()
-	if err != nil {
-		c.reportError("accept join request: get local peer ID", err)
-		return
-	}
+
 	if err = c.pm.AddPeerToGroup(currPeerID, req.GroupId, localDir); err != nil {
 		c.reportError("accept join request: add local peer to group", err)
 		return
@@ -856,7 +926,7 @@ func (c *Cli) rejectJoin() {
 
 	req, err := c.groupClient.GetJoinRequest(c.ctx, &group.GetJoinReq{
 		RequestId: requestID,
-	})
+	}, authContext)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			c.l.Println("Join request not found.")

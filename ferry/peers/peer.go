@@ -11,8 +11,7 @@ import (
 	"github.com/uddinArsalan/ferry/utils"
 )
 
-// we might need mutexes
-
+// nested locking might be here which may cause deadlock
 var (
 	ErrGrpNotFound  = errors.New("no group found with provided group id")
 	ErrNoConn       = errors.New("no connection found")
@@ -71,6 +70,8 @@ func (p *PeerManager) AddPeer(peerId, name, address string, port uint32) {
 }
 
 func (p *PeerManager) GetPeerDetail(peerId string) (*types.Peer, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	peer, ok := p.peers[peerId]
 	if !ok {
 		return nil, false

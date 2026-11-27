@@ -133,7 +133,7 @@ func (g *GroupServer) GetGroupPeerMembership(
 		PeerId:   mem.PeerID,
 		GroupId:  mem.GroupID,
 		Role:     gengroup.PeerRole(mem.Role),
-		JoinedAt: mem.JoinedAt,
+		JoinedAt: timestamppb.New(mem.JoinedAt),
 	}, nil
 }
 
