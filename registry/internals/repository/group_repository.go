@@ -162,7 +162,7 @@ func (r *GroupRepository) CreateJoinRequest(
 	}
 	query2 := "SELECT id FROM peers WHERE peer_id = $1"
 	var recipientPeerID int64
-	row = r.db.QueryRowContext(ctx, query2, recipientPeerID)
+	row = r.db.QueryRowContext(ctx, query2, localRecipientPeerID)
 	if err := row.Scan(&recipientPeerID); err != nil {
 		return err
 	}
@@ -226,7 +226,7 @@ func (r *GroupRepository) UpdateJoinRequestStatus(
 	status domain.JoinStatus) error {
 	query := `
 			UPDATE membership_requests
-				SET request_status = $1
+				SET status = $1
 			WHERE id = $2
 	`
 	_, err := r.db.ExecContext(ctx, query, status.String(), requestID)

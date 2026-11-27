@@ -1,4 +1,5 @@
 certs/*.key
+app.log
 
 # peer - id ,name,address,port ,last_seen
 # req from other peers to add in some groups

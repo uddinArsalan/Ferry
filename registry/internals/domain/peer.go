@@ -2,8 +2,6 @@ package domain
 
 import (
 	"time"
-
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Peer struct {
@@ -38,5 +36,5 @@ type PeerGroupMembership struct {
 	GroupID  int64
 	PeerID   int64
 	Role     PeerRole
-	JoinedAt *timestamppb.Timestamp
+	JoinedAt time.Time
 }

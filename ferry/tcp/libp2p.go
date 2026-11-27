@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -41,6 +42,10 @@ func NewNode(ctx context.Context, privKey crypto.PrivKey, pm *peers.PeerManager,
 		400,
 		connmgr.WithGracePeriod(time.Minute),
 	)
+
+	if err != nil {
+		return nil, err
+	}
 
 	node, err := libp2p.New(
 		libp2p.Transport(tcp.NewTCPTransport),
@@ -87,6 +92,7 @@ func (n *Node) GetConnectedPeers() chan peer.ID {
 			peerIDChan <- c.RemotePeer()
 		},
 	})
+	defer close(peerIDChan)
 	return peerIDChan
 }
 
@@ -122,7 +128,7 @@ func (n *Node) Start() {
 func (n *Node) ConnectToPeers(peersToConnect []types.PeerLocal) {
 	for _, p := range peersToConnect {
 		_, err := n.pm.GetPeersConn(p.Peer.ID)
-		if err != nil {
+		if errors.Is(err, peers.ErrNoConn) {
 			n.log.Printf("connection already exists with this peer")
 			continue
 		}

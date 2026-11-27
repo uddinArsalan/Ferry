@@ -76,6 +76,9 @@ func main() {
 	cli := cli.NewCli(ctx, ferryLogger.GetLogger(), authClient, groupClient, peerClient, pm, node, watcher)
 	cli.TakeUserParams()
 
+	// here we delebirately stop so when user do exit from cli other things also close
+	stop()
+
 	<-ctx.Done()
 
 	err = node.Close()

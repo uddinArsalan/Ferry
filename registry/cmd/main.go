@@ -26,6 +26,7 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 	db, err := db.NewDB()
+
 	if err != nil {
 		log.Fatalf("Error initialising db connection %v", err.Error())
 	}

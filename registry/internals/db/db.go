@@ -2,8 +2,8 @@ package db
 
 import (
 	"database/sql"
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"errors"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"os"
 )
 
@@ -16,6 +16,9 @@ func NewDB() (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	err = db.Ping()
+	if err != nil {
+		return nil, err
+	}
 	return db, nil
 }
-
